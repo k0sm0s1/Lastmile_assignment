@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lastmile_description</name>
+  <version>0.1.0</version>
+  <description>
+    Static Gazebo world built from a real-world scanned point cloud
+    (map_ros_cloud.ply), plus the launch file that spawns a TurtleBot3 into it.
+  </description>
+  <maintainer email="karthikeya7890@gmail.com">Surya</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>turtlebot3_gazebo</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

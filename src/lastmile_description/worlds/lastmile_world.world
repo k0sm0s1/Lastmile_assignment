@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo CLASSIC world (SDF 1.7), not the newer Gazebo Sim/Ignition. Chosen
+  deliberately: ROS2 Humble + TurtleBot3 + Nav2 is the best-documented
+  combination on Gazebo Classic (gazebo_ros_pkgs), and Classic's OGRE1
+  renderer is far more likely to work over WSLg's software/virtual GL than
+  Gazebo Sim's OGRE2+Vulkan requirement. See README for the alternative if
+  you'd rather use modern Gazebo (gz-sim).
+-->
+<sdf version="1.7">
+  <world name="lastmile_world">
+    <physics name="default_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <!-- /gazebo/get_entity_state + set_entity_state: used by the demo recorder's
+         chase camera and for reading ground truth. -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros><namespace>/gazebo</namespace></ros>
+      <update_rate>10.0</update_rate>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Reconstructed from map_ros_cloud.ply. Floor at z=0, 1 unit = 1 meter.
+         See scripts/preprocess_cloud.py and scripts/cloud_to_mesh.py. -->
+    <include>
+      <uri>model://scanned_environment</uri>
+      <name>scanned_environment</name>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>

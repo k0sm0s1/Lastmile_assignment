@@ -1,0 +1,27 @@
+{
+  "floor_normal_original_frame": [
+    -0.01658744291010924,
+    0.014320913536804994,
+    0.9997598552518376
+  ],
+  "rotation_matrix": [
+    [
+      0.9998624118483159,
+      0.0001187879310050396,
+      0.01658744291010924
+    ],
+    [
+      0.0001187879310050396,
+      0.9998974434035217,
+      -0.014320913536804994
+    ],
+    [
+      -0.01658744291010924,
+      0.014320913536804994,
+      0.9997598552518376
+    ]
+  ],
+  "floor_z_offset_after_rotation": 0.01893946990948546,
+  "voxel_size": 0.03,
+  "note": "Apply rotation R about origin, then subtract floor_z_offset from z, to go from the ORIGINAL map_ros_cloud.ply frame into the floor-aligned frame used by every other script in this repo."
+}

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lastmile Robot Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171b21; --panel2: #1d232b; --line: #2a313b;
+    --text: #e6e9ee; --muted: #8a94a3; --accent: #4ea1ff; --ok: #3ecf8e;
+    --warn: #f5b041; --bad: #ff5d5d; --robot: #3ecf8e; --plan: #4ea1ff; --scan: #ff7ab6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .pill { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--panel2); white-space: nowrap; }
+  .pill.ok { color: var(--ok); border-color: #2d6b52; } .pill.bad { color: var(--bad); border-color: #7a3434; }
+  .pill.warn { color: var(--warn); border-color: #7a5a24; } .pill.info { color: var(--accent); border-color: #2b4f7a; }
+  .grow { flex: 1; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; height: calc(100% - 49px); }
+  #mapwrap { position: relative; overflow: hidden; background: #0b0d10; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  #hint { position: absolute; left: 12px; bottom: 12px; background: rgba(23,27,33,.9); border: 1px solid var(--line);
+    padding: 7px 10px; border-radius: 8px; font-size: 12px; color: var(--muted); max-width: 520px; }
+  #hint b { color: var(--text); }
+  #cursor { position: absolute; right: 12px; bottom: 12px; font: 12px var(--mono); color: var(--muted);
+    background: rgba(23,27,33,.9); border: 1px solid var(--line); padding: 5px 8px; border-radius: 8px; }
+  .legend { position: absolute; left: 12px; top: 12px; display: flex; gap: 12px; font-size: 12px; color: var(--muted);
+    background: rgba(23,27,33,.9); border: 1px solid var(--line); padding: 6px 10px; border-radius: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 12px; display: flex;
+    flex-direction: column; gap: 12px; }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+  .card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-family: var(--mono); font-size: 13px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .big { font: 600 22px var(--mono); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type=number] { width: 74px; background: #0f1216; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 6px; font: 13px var(--mono); }
+  button { background: #253041; color: var(--text); border: 1px solid #34435a; border-radius: 6px; padding: 6px 11px;
+    font-size: 13px; cursor: pointer; }
+  button:hover { background: #2d3a4f; } button.primary { background: #1f5fae; border-color: #2c74cc; }
+  button.primary:hover { background: #2569bd; } button.danger { background: #5a2323; border-color: #7a3434; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  .bar { height: 8px; background: #0f1216; border-radius: 4px; position: relative; overflow: hidden; margin: 3px 0 8px; }
+  .bar > div { position: absolute; top: 0; bottom: 0; background: var(--accent); }
+  .bar > .thr { background: var(--warn); width: 2px; }
+  .bar.center > .zero { position: absolute; left: 50%; width: 1px; top: 0; bottom: 0; background: var(--line); }
+  table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
+  td, th { padding: 3px 4px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  .r-succeeded { color: var(--ok); } .r-aborted, .r-rejected, .r-server_unavailable { color: var(--bad); }
+  .r-canceled, .r-preempted { color: var(--warn); } .r-pending { color: var(--accent); }
+  .alerts { font: 12px var(--mono); max-height: 120px; overflow-y: auto; color: var(--warn); }
+  .muted { color: var(--muted); } .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; } .seg button.on { background: #253041; }
+  .health { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; font-size: 13px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+    aside { border-left: 0; border-top: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Lastmile · Indoor Navigation</h1>
+  <span class="sub">TurtleBot3 in the scanned corridor · live ROS 2 graph</span>
+  <span class="grow"></span>
+  <span id="conn" class="pill bad">disconnected</span>
+  <span id="navpill" class="pill">idle</span>
+</header>
+<main>
+  <div id="mapwrap">
+    <canvas id="cv"></canvas>
+    <div class="legend"><span><i style="background:var(--robot)"></i>robot</span><span><i style="background:var(--plan)"></i>global plan</span>
+      <span><i style="background:var(--scan)"></i>lidar</span><span><i style="background:var(--warn)"></i>goal</span></div>
+    <div id="hint"><b>Click</b> the map to send a goal · <b>click-drag</b> to set heading ·
+      <b>scroll</b> to zoom · <b>right-drag</b> to pan · <span id="modehint">mode: goal</span></div>
+    <div id="cursor">x —  y —</div>
+  </div>
+  <aside>
+    <div class="card">
+      <h2>Robot pose · /robot/current_xyz</h2>
+      <div class="row" style="justify-content:space-between">
+        <div class="big" id="xyz">—</div><span id="hz" class="pill">— Hz</span>
+      </div>
+      <div class="kv" style="margin-top:6px"><span>yaw</span><span id="yaw">—</span><span>frame</span><span id="frame">—</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Navigation</h2>
+      <div class="kv">
+        <span>state</span><span id="nstate">—</span>
+        <span>goal</span><span id="ngoal">—</span>
+        <span>remaining</span><span id="nrem">—</span>
+        <span>nav time</span><span id="ntime">—</span>
+        <span>recoveries</span><span id="nrec">—</span>
+        <span>final error</span><span id="nerr">—</span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <span class="muted">x</span><input id="gx" type="number" step="0.1" value="8.0">
+        <span class="muted">y</span><input id="gy" type="number" step="0.1" value="0.0">
+        <span class="muted">yaw°</span><input id="gyaw" type="number" step="15" value="0">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="send">Send goal</button>
+        <button class="danger" id="cancel">Cancel</button>
+        <span class="seg"><button id="mgoal" class="on">goal</button><button id="minit">set pose</button></span>
+      </div>
+      <div class="row" style="margin-top:8px" id="presets"></div>
+    </div>
+
+    <div class="card">
+      <h2>Velocity command · /cmd_vel</h2>
+      <div class="kv"><span>linear.x</span><span id="v">—</span><span>angular.z</span><span id="w">—</span></div>
+      <div class="muted" style="font-size:12px;margin-top:6px">|v| vs threshold <span id="vthr"></span></div>
+      <div class="bar" id="vbar"><div id="vfill"></div><div class="thr" id="vth"></div></div>
+      <div class="muted" style="font-size:12px">|ω| vs threshold <span id="wthr"></span></div>
+      <div class="bar" id="wbar"><div id="wfill"></div><div class="thr" id="wth"></div></div>
+      <div class="muted" style="font-size:12px">threshold alerts (robot_state_manager) · total <span id="exc">0</span></div>
+      <div class="alerts" id="alerts"></div>
+    </div>
+
+    <div class="card">
+      <h2>Health</h2>
+      <div class="health" id="health"></div>
+    </div>
+
+    <div class="card">
+      <h2>Waypoint history</h2>
+      <table><thead><tr><th>#</th><th>goal</th><th>sent</th><th>result</th><th>time</th><th>err</th></tr></thead><tbody id="hist"></tbody></table>
+    </div>
+  </aside>
+</main>
+<script>
+(() => {
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  let meta = null, mapImg = null, S = null, plan = [], view = { s: 1, ox: 0, oy: 0 };
+  let mode = 'goal', drag = null, pan = null, pendingGoal = null;
+  const PRESETS = [['origin', 0, 0], ['corridor E', 8, 0], ['north arm', 8.8, 5], ['south room', 15.5, -3], ['west wing', -2.8, 5]];
+
+  PRESETS.forEach(([n, x, y]) => { const b = document.createElement('button'); b.className = 'small'; b.textContent = n;
+    b.onclick = () => sendGoal(x, y, 0); $('presets').appendChild(b); });
+
+  function resize() { const r = cv.getBoundingClientRect(); cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio; fit(); }
+  function fit() { if (!meta) return; const W = cv.width, H = cv.height;
+    view.s = Math.min(W / meta.width, H / meta.height) * 0.96; view.ox = (W - meta.width * view.s) / 2; view.oy = (H - meta.height * view.s) / 2; }
+  // world (m) <-> canvas px
+  const w2c = (x, y) => [view.ox + (x - meta.origin[0]) / meta.resolution * view.s,
+                         view.oy + (meta.height - (y - meta.origin[1]) / meta.resolution) * view.s];
+  const c2w = (px, py) => [meta.origin[0] + (px - view.ox) / view.s * meta.resolution,
+                           meta.origin[1] + (meta.height - (py - view.oy) / view.s) * meta.resolution];
+
+  async function loadMap() {
+    try { const m = await (await fetch('/api/map')).json(); if (!m) throw 0; meta = m;
+      mapImg = new Image(); mapImg.onload = () => { fit(); }; mapImg.src = '/map.png?' + Date.now(); }
+    catch (e) { setTimeout(loadMap, 1500); }
+  }
+
+  function draw() {
+    const W = cv.width, H = cv.height; ctx.fillStyle = '#0b0d10'; ctx.fillRect(0, 0, W, H);
+    if (meta && mapImg && mapImg.complete) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(mapImg, view.ox, view.oy, meta.width * view.s, meta.height * view.s);
+      // 1 m grid, origin axes
+      ctx.lineWidth = 1; const step = 1 / meta.resolution * view.s;
+      if (step > 12) { ctx.strokeStyle = 'rgba(78,161,255,0.08)';
+        for (let x = Math.ceil(meta.origin[0]); x < meta.origin[0] + meta.width * meta.resolution; x++) { const [a] = w2c(x, 0); ctx.beginPath(); ctx.moveTo(a, view.oy); ctx.lineTo(a, view.oy + meta.height * view.s); ctx.stroke(); }
+        for (let y = Math.ceil(meta.origin[1]); y < meta.origin[1] + meta.height * meta.resolution; y++) { const [, b] = w2c(0, y); ctx.beginPath(); ctx.moveTo(view.ox, b); ctx.lineTo(view.ox + meta.width * view.s, b); ctx.stroke(); } }
+      const [ax, ay] = w2c(0, 0); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(ax - 8, ay); ctx.lineTo(ax + 8, ay); ctx.moveTo(ax, ay - 8); ctx.lineTo(ax, ay + 8); ctx.stroke();
+      if (S) {
+        // lidar
+        ctx.fillStyle = 'rgba(255,122,182,.85)'; const r = Math.max(1.5, view.s * 0.6);
+        (S.scan || []).forEach(([x, y]) => { const [a, b] = w2c(x, y); ctx.fillRect(a - r / 2, b - r / 2, r, r); });
+        // plan
+        if (plan.length > 1 && S.nav && ['navigating', 'sending'].includes(S.nav.state)) {
+          ctx.strokeStyle = '#4ea1ff'; ctx.lineWidth = 2.5 * devicePixelRatio; ctx.beginPath();
+          plan.forEach(([x, y], i) => { const [a, b] = w2c(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke(); }
+        // goal
+        const g = (S.nav && S.nav.goal) || pendingGoal;
+        if (g) drawArrow(g.x, g.y, g.yaw || 0, '#f5b041', 0.35, true);
+        // robot
+        if (S.pose) drawRobot(S.pose.x, S.pose.y, S.pose.yaw);
+      }
+      if (drag) { const [x0, y0] = drag.w, [x1, y1] = drag.w2 || drag.w; const yaw = Math.hypot(x1 - x0, y1 - y0) > 0.15 ? Math.atan2(y1 - y0, x1 - x0) : 0;
+        drawArrow(x0, y0, yaw, mode === 'goal' ? '#f5b041' : '#c792ea', 0.45, false); }
+    } else { ctx.fillStyle = '#8a94a3'; ctx.font = `${14 * devicePixelRatio}px system-ui`; ctx.fillText('waiting for /map …', 20 * devicePixelRatio, 30 * devicePixelRatio); }
+    requestAnimationFrame(draw);
+  }
+  function drawRobot(x, y, yaw) {
+    const [a, b] = w2c(x, y), R = Math.max(6 * devicePixelRatio, 0.22 / meta.resolution * view.s);
+    ctx.save(); ctx.translate(a, b); ctx.rotate(-yaw);
+    ctx.fillStyle = 'rgba(62,207,142,.25)'; ctx.strokeStyle = '#3ecf8e'; ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(R * 1.6, 0); ctx.stroke(); ctx.restore();
+  }
+  function drawArrow(x, y, yaw, col, len, flag) {
+    const [a, b] = w2c(x, y), L = Math.max(14 * devicePixelRatio, len / meta.resolution * view.s);
+    ctx.save(); ctx.translate(a, b); ctx.rotate(-yaw); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.5 * devicePixelRatio;
+    ctx.beginPath(); ctx.arc(0, 0, 4 * devicePixelRatio, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(L, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(L - 7 * devicePixelRatio, -5 * devicePixelRatio); ctx.lineTo(L - 7 * devicePixelRatio, 5 * devicePixelRatio); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // ---- interaction ----
+  const evpt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * devicePixelRatio, (e.clientY - r.top) * devicePixelRatio]; };
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('mousedown', e => { if (!meta) return; const p = evpt(e);
+    if (e.button === 2 || e.button === 1) { pan = { p, ox: view.ox, oy: view.oy }; return; }
+    drag = { w: c2w(...p) }; });
+  window.addEventListener('mousemove', e => { if (!meta) return; const p = evpt(e);
+    const [x, y] = c2w(...p); $('cursor').textContent = `x ${x.toFixed(2)}  y ${y.toFixed(2)}`;
+    if (pan) { view.ox = pan.ox + p[0] - pan.p[0]; view.oy = pan.oy + p[1] - pan.p[1]; }
+    if (drag) drag.w2 = [x, y]; });
+  window.addEventListener('mouseup', e => { if (pan) { pan = null; return; } if (!drag) return;
+    const [x0, y0] = drag.w, [x1, y1] = drag.w2 || drag.w; drag = null;
+    const yaw = Math.hypot(x1 - x0, y1 - y0) > 0.15 ? Math.atan2(y1 - y0, x1 - x0) : 0;
+    if (mode === 'goal') sendGoal(x0, y0, yaw); else post('/api/initialpose', { x: x0, y: y0, yaw }); });
+  cv.addEventListener('wheel', e => { if (!meta) return; e.preventDefault(); const p = evpt(e), k = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    view.ox = p[0] - (p[0] - view.ox) * k; view.oy = p[1] - (p[1] - view.oy) * k; view.s *= k; }, { passive: false });
+  cv.addEventListener('dblclick', fit);
+  $('mgoal').onclick = () => setMode('goal'); $('minit').onclick = () => setMode('init');
+  function setMode(m) { mode = m; $('mgoal').classList.toggle('on', m === 'goal'); $('minit').classList.toggle('on', m === 'init');
+    $('modehint').textContent = 'mode: ' + (m === 'goal' ? 'goal' : 'set AMCL pose'); }
+  $('send').onclick = () => sendGoal(+$('gx').value, +$('gy').value, (+$('gyaw').value) * Math.PI / 180);
+  $('cancel').onclick = () => post('/api/cancel', {});
+  async function post(url, body) { try { await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } catch (e) {} }
+  function sendGoal(x, y, yaw) { $('gx').value = x.toFixed(2); $('gy').value = y.toFixed(2); $('gyaw').value = Math.round(yaw * 180 / Math.PI);
+    pendingGoal = { x, y, yaw }; post('/api/goal', { x, y, yaw }); }
+
+  // ---- live stream ----
+  function connect() {
+    const es = new EventSource('/api/stream');
+    es.onopen = () => { $('conn').textContent = 'live'; $('conn').className = 'pill ok'; };
+    es.onerror = () => { $('conn').textContent = 'reconnecting'; $('conn').className = 'pill bad'; };
+    es.onmessage = ev => { S = JSON.parse(ev.data); if (S.plan) plan = S.plan; if (!meta) loadMap(); render(); };
+  }
+  const f = (v, d = 2) => (v === null || v === undefined) ? '—' : (+v).toFixed(d);
+  function render() {
+    const p = S.pose, xyz = S.xyz;
+    $('xyz').textContent = xyz ? `${f(xyz[0])}, ${f(xyz[1])}, ${f(xyz[2])}` : '—';
+    $('hz').textContent = `${f(S.xyz_hz, 1)} Hz`; $('hz').className = 'pill ' + (S.xyz_hz > 9 ? 'ok' : S.xyz_hz > 5 ? 'warn' : 'bad');
+    $('yaw').textContent = p ? `${f(p.yaw)} rad (${f(p.yaw * 180 / Math.PI, 0)}°)` : '—'; $('frame').textContent = p ? p.frame : '—';
+    const n = S.nav || {}, st = n.state || 'idle';
+    $('nstate').textContent = st; $('navpill').textContent = st;
+    $('navpill').className = 'pill ' + ({ navigating: 'info', sending: 'info', succeeded: 'ok', aborted: 'bad', rejected: 'bad', server_unavailable: 'bad', canceled: 'warn' }[st] || '');
+    $('ngoal').textContent = n.goal ? `(${f(n.goal.x)}, ${f(n.goal.y)}) ${f(n.goal.yaw * 180 / Math.PI, 0)}°` : '—';
+    $('nrem').textContent = n.distance_remaining == null ? '—' : f(n.distance_remaining) + ' m';
+    $('ntime').textContent = n.nav_time_s == null ? '—' : f(n.nav_time_s, 1) + ' s (sim)'; $('nrec').textContent = n.recoveries ?? '—';
+    $('nerr').innerHTML = n.goal_error_m == null ? '—' : `${f(n.goal_error_m)} m ${n.verified ? '<span class="pill ok">verified</span>' : '<span class="pill bad">unverified</span>'}`;
+    if (n.goal) pendingGoal = null;
+    const th = S.thresholds || { linear: 0.2, angular: 0.8 }, v = S.cmd.v, w = S.cmd.w, fl = S.cmd_flags || {};
+    $('v').innerHTML = `${f(v, 3)} m/s ${fl.lin_exceeded ? '<span class="pill warn">over</span>' : ''}`;
+    $('w').innerHTML = `${f(w, 3)} rad/s ${fl.ang_exceeded ? '<span class="pill warn">over</span>' : ''}`;
+    $('vthr').textContent = `(${th.linear} m/s)`; $('wthr').textContent = `(${th.angular} rad/s)`;
+    const vmax = Math.max(th.linear * 2, 0.3), wmax = Math.max(th.angular * 2, 1.5);
+    $('vfill').style.width = Math.min(100, Math.abs(v) / vmax * 100) + '%'; $('vth').style.left = (th.linear / vmax * 100) + '%';
+    $('vfill').style.background = Math.abs(v) > th.linear ? 'var(--warn)' : 'var(--accent)';
+    $('wfill').style.width = Math.min(100, Math.abs(w) / wmax * 100) + '%'; $('wth').style.left = (th.angular / wmax * 100) + '%';
+    $('wfill').style.background = Math.abs(w) > th.angular ? 'var(--warn)' : 'var(--accent)';
+    const ec = S.exceed_count || {}; $('exc').textContent = `${ec.linear || 0} lin / ${ec.angular || 0} ang`;
+    $('alerts').innerHTML = (S.alerts || []).slice().reverse().map(a => `<div>${a.t}  ${a.kind.padEnd(7)} v=${f(a.v, 3)} ω=${f(a.w, 3)}</div>`).join('') || '<span class="muted">none</span>';
+    const h = S.health || {}, lc = h.lifecycle || {};
+    const pill = (ok, t) => `<span class="pill ${ok ? 'ok' : 'bad'}">${t}</span>`;
+    const cov = h.amcl_cov ? `σx ${f(Math.sqrt(h.amcl_cov.xx), 2)} σy ${f(Math.sqrt(h.amcl_cov.yy), 2)}` : '';
+    $('health').innerHTML =
+      `<span>AMCL localized <span class="muted">(map→odom ${h.map_odom_age == null ? 'missing' : f(h.map_odom_age, 1) + 's'}) ${cov}</span></span>${pill(h.localized, h.localized ? 'yes' : 'no')}` +
+      `<span>Nav2 lifecycle</span>${pill(h.nav2_active, h.nav2_active ? 'all active' : 'not ready')}` +
+      Object.entries(lc).map(([k, v]) => `<span class="muted" style="padding-left:10px">${k}</span><span class="muted">${v}</span>`).join('') +
+      `<span>robot_state_manager</span>${pill(h.task3_node, h.task3_node ? 'publishing' : 'silent')}`;
+    $('hist').innerHTML = (S.history || []).slice().reverse().map(r => { const res = r.result || 'pending';
+      return `<tr><td>${r.id}</td><td>(${f(r.x, 1)}, ${f(r.y, 1)})</td><td>${r.sent}</td><td class="r-${res}">${res}</td><td>${r.nav_time_s != null ? f(r.nav_time_s, 0) + 's' : ''}</td><td>${r.error_m != null ? f(r.error_m) + 'm' : ''}</td></tr>`; }).join('')
+      || '<tr><td colspan="6" class="muted">no goals yet</td></tr>';
+  }
+  window.addEventListener('resize', resize); resize(); loadMap(); connect(); requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

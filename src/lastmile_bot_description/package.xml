@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lastmile_bot_description</name>
+  <version>0.1.0</version>
+  <description>
+    Fun/branding addition: a blocky "Minecraft character"-styled last-mile
+    delivery robot (2 driven + 2 free-rolling wheels, functioning neck/arms
+    for a cosmetic idle animation) that can be spawned into lastmile_world
+    as an alternative to TurtleBot3. Not required by the assignment; kept
+    separate from lastmile_description's default TurtleBot3 path.
+  </description>
+  <maintainer email="karthikeya7890@gmail.com">Surya</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>lastmile_description</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

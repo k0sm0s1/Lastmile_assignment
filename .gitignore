@@ -1,0 +1,17 @@
+# colcon build artifacts
+build/
+install/
+log/
+
+# raw + intermediate point cloud data (large binaries; regenerate via scripts/)
+data/map_ros_cloud.ply
+data/cleaned_cloud.ply
+
+# python
+__pycache__/
+*.pyc
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store

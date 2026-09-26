@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <!--
+    The scanned environment, reconstructed from map_ros_cloud.ply
+    (scripts/cloud_to_mesh.py). 1 unit = 1 m, floor at z ~= 0.
+
+    visual    : the full reconstructed mesh (environment.obj)
+    collision : walls/obstacles only (environment_collision.obj, made by
+                scripts/make_collision_mesh.py) + a flat ground plane.
+    Why split: the Poisson-reconstructed floor is a noisy, bumpy trimesh
+    (+/- ~8 cm). With it as the drive surface, the TurtleBot3 came to rest on
+    floor bumps with its wheels barely loaded and could not move under
+    /cmd_vel (and earlier, fell through gaps). A flat analytic plane gives
+    stable wheel contact; walls still collide and are still seen by the lidar.
+  -->
+  <model name="scanned_environment">
+    <static>true</static>
+    <link name="link">
+      <pose>0 0 0 0 0 0</pose>
+      <collision name="walls">
+        <geometry>
+          <mesh>
+            <uri>model://scanned_environment/meshes/environment_collision.obj</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <surface>
+          <friction><ode><mu>0.8</mu><mu2>0.8</mu2></ode></friction>
+        </surface>
+      </collision>
+      <collision name="ground">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <plane><normal>0 0 1</normal><size>60 40</size></plane>
+        </geometry>
+        <surface>
+          <friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction>
+        </surface>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://scanned_environment/meshes/environment.obj</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>

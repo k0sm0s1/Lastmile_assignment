@@ -1,0 +1,7 @@
+# For the offline preprocessing scripts in scripts/ (NOT part of the ROS2
+# workspace - these run once, outside colcon, to produce the mesh and map
+# that the ROS2 packages then consume as static assets).
+open3d==0.20.0
+pillow
+scipy
+numpy

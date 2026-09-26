@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Fast DDS profile: UDPv4 only (shared-memory transport disabled).
+  Under WSL2 the default SHM transport silently stopped delivering AMCL's
+  map->odom /tf updates to the Nav2 servers that were started alongside it
+  (their TF buffers froze at the first transform, so the planner kept
+  planning from the spawn point). UDP-only delivery fixed it.
+  Used by scripts/run_demo.sh via FASTRTPS_DEFAULT_PROFILES_FILE.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>udp_only</transport_id>
+      <type>UDPv4</type>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="udp_only_participant" is_default_profile="true">
+    <rtps>
+      <userTransports><transport_id>udp_only</transport_id></userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lastmile_bot_animator</name>
+  <version>0.1.0</version>
+  <description>
+    Cosmetic idle-animation node for lastmile_bot's neck/arms. Publishes a
+    JointTrajectory consumed by the gazebo_ros_joint_pose_trajectory plugin.
+    Does not affect navigation.
+  </description>
+  <maintainer email="karthikeya7890@gmail.com">Surya</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>builtin_interfaces</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

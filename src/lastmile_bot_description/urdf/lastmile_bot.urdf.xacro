@@ -1,0 +1,296 @@
+<?xml version="1.0"?>
+<!--
+  lastmile_bot: a blocky "Minecraft character"-styled last-mile delivery
+  robot. Fun/branding addition on top of the assignment, not a replacement
+  for the TurtleBot3 path used to validate the pipeline (see README).
+
+  Everything is a box/cylinder primitive - no mesh files - so it's cheap to
+  simulate. Total standing height ~1.25m.
+
+  Drivetrain: 2 driven rear wheels (continuous joints + libgazebo_ros_diff_drive)
+  + 2 free-rolling front wheels (continuous joints, no plugin - physics/contact
+  spins them passively). This is a real differential-drive base underneath the
+  costume, so Nav2/AMCL can actually drive it the same way they drive TurtleBot3.
+
+  Neck + arms are separate continuous joints animated cosmetically by
+  libgazebo_ros_joint_pose_trajectory (see lastmile_bot_animator package) -
+  they do not affect navigation.
+-->
+<robot name="lastmile_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="wheel_radius" value="0.08"/>
+  <xacro:property name="wheel_width" value="0.04"/>
+  <xacro:property name="wheel_y_offset" value="0.195"/>  <!-- half chassis width + half wheel width -->
+  <xacro:property name="rear_x" value="-0.15"/>
+  <xacro:property name="front_x" value="0.15"/>
+
+  <xacro:property name="chassis_x" value="0.40"/>
+  <xacro:property name="chassis_y" value="0.35"/>
+  <xacro:property name="chassis_z" value="0.20"/>
+  <xacro:property name="chassis_bottom" value="${wheel_radius}"/>
+
+  <xacro:property name="torso_x" value="0.30"/>
+  <xacro:property name="torso_y" value="0.25"/>
+  <xacro:property name="torso_z" value="0.62"/>
+  <xacro:property name="torso_bottom" value="${chassis_bottom + chassis_z}"/>
+
+  <xacro:property name="neck_x" value="0.08"/>
+  <xacro:property name="neck_y" value="0.08"/>
+  <xacro:property name="neck_z" value="0.10"/>
+  <xacro:property name="neck_bottom" value="${torso_bottom + torso_z}"/>
+
+  <xacro:property name="head_size" value="0.25"/>
+  <xacro:property name="head_bottom" value="${neck_bottom + neck_z}"/>
+
+  <xacro:property name="arm_x" value="0.08"/>
+  <xacro:property name="arm_y" value="0.08"/>
+  <xacro:property name="arm_z" value="0.45"/>
+  <xacro:property name="shoulder_z" value="${torso_bottom + torso_z}"/>
+  <xacro:property name="shoulder_y" value="${torso_y/2 + arm_y/2}"/>
+
+  <material name="lastmile_blue"><color rgba="0.15 0.35 0.75 1"/></material>
+  <material name="lastmile_skin"><color rgba="0.85 0.65 0.45 1"/></material>
+  <material name="lastmile_dark"><color rgba="0.12 0.12 0.12 1"/></material>
+  <material name="lastmile_hi"><color rgba="0.95 0.55 0.10 1"/></material>
+
+  <!-- ===================== base ===================== -->
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${chassis_bottom + chassis_z/2}"/>
+      <geometry><box size="${chassis_x} ${chassis_y} ${chassis_z}"/></geometry>
+      <material name="lastmile_hi"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${chassis_bottom + chassis_z/2}"/>
+      <geometry><box size="${chassis_x} ${chassis_y} ${chassis_z}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${chassis_bottom + chassis_z/2}"/>
+      <mass value="8.0"/>
+      <inertia ixx="0.10" ixy="0" ixz="0" iyy="0.12" iyz="0" izz="0.15"/>
+    </inertial>
+  </link>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0"/>
+  </joint>
+
+  <!-- ===================== wheels ===================== -->
+  <xacro:macro name="wheel_link" params="name">
+    <link name="${name}">
+      <visual>
+        <origin rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="lastmile_dark"/>
+      </visual>
+      <collision>
+        <origin rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.6"/>
+        <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="wheel_joint" params="name x y">
+    <joint name="${name}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <origin xyz="${x} ${y} ${wheel_radius}"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:wheel_link name="rear_left_wheel"/>
+  <xacro:wheel_link name="rear_right_wheel"/>
+  <xacro:wheel_link name="front_left_wheel"/>
+  <xacro:wheel_link name="front_right_wheel"/>
+
+  <!-- driven -->
+  <xacro:wheel_joint name="rear_left_wheel"  x="${rear_x}"  y="${wheel_y_offset}"/>
+  <xacro:wheel_joint name="rear_right_wheel" x="${rear_x}"  y="-${wheel_y_offset}"/>
+  <!-- free-rolling: continuous joints exist but no plugin drives them -->
+  <xacro:wheel_joint name="front_left_wheel"  x="${front_x}" y="${wheel_y_offset}"/>
+  <xacro:wheel_joint name="front_right_wheel" x="${front_x}" y="-${wheel_y_offset}"/>
+
+  <!-- ===================== torso ===================== -->
+  <link name="torso_link">
+    <visual>
+      <origin xyz="0 0 ${torso_z/2}"/>
+      <geometry><box size="${torso_x} ${torso_y} ${torso_z}"/></geometry>
+      <material name="lastmile_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${torso_z/2}"/>
+      <geometry><box size="${torso_x} ${torso_y} ${torso_z}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${torso_z/2}"/>
+      <mass value="4.0"/>
+      <inertia ixx="0.08" ixy="0" ixz="0" iyy="0.08" iyz="0" izz="0.05"/>
+    </inertial>
+  </link>
+  <joint name="torso_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="torso_link"/>
+    <origin xyz="0 0 ${torso_bottom}"/>
+  </joint>
+
+  <!-- ===================== neck + head ===================== -->
+  <link name="neck_link">
+    <visual>
+      <origin xyz="0 0 ${neck_z/2}"/>
+      <geometry><box size="${neck_x} ${neck_y} ${neck_z}"/></geometry>
+      <material name="lastmile_skin"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${neck_z/2}"/>
+      <geometry><box size="${neck_x} ${neck_y} ${neck_z}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${neck_z/2}"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0005"/>
+    </inertial>
+  </link>
+  <joint name="neck_joint" type="continuous">
+    <parent link="torso_link"/>
+    <child link="neck_link"/>
+    <origin xyz="0 0 ${torso_z}"/>
+    <axis xyz="0 0 1"/>  <!-- pan -->
+  </joint>
+
+  <link name="head_link">
+    <visual>
+      <origin xyz="0 0 ${head_size/2}"/>
+      <geometry><box size="${head_size} ${head_size} ${head_size}"/></geometry>
+      <material name="lastmile_skin"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${head_size/2}"/>
+      <geometry><box size="${head_size} ${head_size} ${head_size}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${head_size/2}"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.003" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003"/>
+    </inertial>
+  </link>
+  <joint name="head_joint" type="fixed">
+    <parent link="neck_link"/>
+    <child link="head_link"/>
+    <origin xyz="0 0 ${neck_z}"/>
+  </joint>
+
+  <!-- ===================== arms ===================== -->
+  <xacro:macro name="arm" params="side y_sign">
+    <link name="${side}_arm_link">
+      <visual>
+        <origin xyz="0 0 -${arm_z/2}"/>
+        <geometry><box size="${arm_x} ${arm_y} ${arm_z}"/></geometry>
+        <material name="lastmile_blue"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 -${arm_z/2}"/>
+        <geometry><box size="${arm_x} ${arm_y} ${arm_z}"/></geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 -${arm_z/2}"/>
+        <mass value="0.4"/>
+        <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.0005"/>
+      </inertial>
+    </link>
+    <joint name="${side}_shoulder_joint" type="continuous">
+      <parent link="torso_link"/>
+      <child link="${side}_arm_link"/>
+      <origin xyz="0 ${y_sign * shoulder_y} ${shoulder_z - torso_bottom}"/>
+      <axis xyz="1 0 0"/>  <!-- swing forward/back -->
+    </joint>
+  </xacro:macro>
+
+  <xacro:arm side="left"  y_sign="1"/>
+  <xacro:arm side="right" y_sign="-1"/>
+
+  <!-- ===================== lidar (Nav2/AMCL requirement) ===================== -->
+  <link name="lidar_link">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.05"/></geometry>
+      <material name="lastmile_dark"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.04" length="0.05"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+    </inertial>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="torso_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.10 0 ${torso_z + 0.025}"/>
+  </joint>
+
+  <!-- ===================== Gazebo plugins ===================== -->
+  <gazebo>
+    <plugin name="diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <ros><namespace>/</namespace></ros>
+      <left_joint>rear_left_wheel_joint</left_joint>
+      <right_joint>rear_right_wheel_joint</right_joint>
+      <wheel_separation>${2*wheel_y_offset}</wheel_separation>
+      <wheel_diameter>${2*wheel_radius}</wheel_diameter>
+      <max_wheel_torque>25</max_wheel_torque>
+      <max_wheel_acceleration>1.5</max_wheel_acceleration>
+      <command_topic>cmd_vel</command_topic>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>false</publish_wheel_tf>
+      <odometry_topic>odom</odometry_topic>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+    </plugin>
+  </gazebo>
+
+  <gazebo reference="lidar_link">
+    <sensor type="ray" name="lidar_sensor">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>false</visualize>
+      <update_rate>5</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range><min>0.12</min><max>10.0</max><resolution>0.015</resolution></range>
+        <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
+      </ray>
+      <plugin name="lidar_plugin" filename="libgazebo_ros_ray_sensor.so">
+        <ros><remapping>~/out:=scan</remapping></ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>lidar_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- cosmetic idle animation driver: see lastmile_bot_animator package.
+       This plugin directly sets joint positions from a JointTrajectory
+       message - it is NOT physically simulated (no torque/dynamics), which
+       is intentional: it's a costume animation, not a manipulator. -->
+  <gazebo>
+    <plugin name="joint_pose_trajectory" filename="libgazebo_ros_joint_pose_trajectory.so">
+      <ros><remapping>set_joint_trajectory:=lastmile_bot/joint_trajectory</remapping></ros>
+      <update_rate>10</update_rate>
+    </plugin>
+  </gazebo>
+
+</robot>
