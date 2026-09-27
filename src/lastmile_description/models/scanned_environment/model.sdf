@@ -4,7 +4,9 @@
     The scanned environment, reconstructed from map_ros_cloud.ply
     (scripts/cloud_to_mesh.py). 1 unit = 1 m, floor at z ~= 0.
 
-    visual    : the full reconstructed mesh (environment.obj)
+    visual    : the reconstructed mesh with the ceiling cut away above 2 m
+                (environment_visual.obj) so the GUI can look into the corridors;
+                environment.obj is the full, uncut reconstruction
     collision : walls/obstacles only (environment_collision.obj, made by
                 scripts/make_collision_mesh.py) + a flat ground plane.
     Why split: the Poisson-reconstructed floor is a noisy, bumpy trimesh
@@ -40,7 +42,7 @@
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>model://scanned_environment/meshes/environment.obj</uri>
+            <uri>model://scanned_environment/meshes/environment_visual.obj</uri>
             <scale>1 1 1</scale>
           </mesh>
         </geometry>

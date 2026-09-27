@@ -63,7 +63,9 @@ def generate_launch_description():
         output="screen",
         condition=IfCondition(LaunchConfiguration("spawn_turtlebot3")),
         arguments=["-entity", "turtlebot3_waffle", "-file", tb3_model_sdf,
-                   "-x", SPAWN_X, "-y", SPAWN_Y, "-z", SPAWN_Z, "-Y", SPAWN_YAW],
+                   "-x", SPAWN_X, "-y", SPAWN_Y, "-z", SPAWN_Z, "-Y", SPAWN_YAW,
+                   # with the GUI on, loading the scanned mesh can take >30 s (the default)
+                   "-timeout", "120"],
     )
     tb3_state_publisher = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(tb3_gazebo_share, "launch", "robot_state_publisher.launch.py")),
@@ -75,7 +77,8 @@ def generate_launch_description():
     spawn_obstacles = [
         Node(package="gazebo_ros", executable="spawn_entity.py", name=f"spawn_{name}", output="screen",
              condition=IfCondition(LaunchConfiguration("obstacles")),
-             arguments=["-entity", name, "-file", obstacle_sdf, "-x", str(x), "-y", str(y), "-z", "0.0"])
+             arguments=["-entity", name, "-file", obstacle_sdf, "-x", str(x), "-y", str(y), "-z", "0.0",
+                        "-timeout", "120"])
         for name, x, y in OBSTACLES
     ]
 

@@ -29,7 +29,13 @@ OBS_ARG=false; [ "${OBSTACLES:-0}" = "1" ] && OBS_ARG=true
 [ "$OBS_ARG" = true ] && echo "      obstacle mode: 3 unmapped boxes + obstacle_mapper"
 echo "[1/4] Gazebo + scanned world + TurtleBot3 at (0,0,0)   (log: $LOG/sim.log)"
 setsid nohup ros2 launch lastmile_description spawn_world.launch.py gui:=$GUI_ARG obstacles:=$OBS_ARG > "$LOG/sim.log" 2>&1 &
-for i in $(seq 1 60); do ros2 topic list 2>/dev/null | grep -q "^/odom$" && break; sleep 1; done
+# /odom only appears once the robot has actually spawned (with the GUI on, the
+# scanned mesh can take well over 30 s to load)
+for i in $(seq 1 150); do ros2 topic list 2>/dev/null | grep -q "^/odom$" && break; sleep 1; done
+if ! ros2 topic list 2>/dev/null | grep -q "^/odom$"; then
+  echo "ERROR: the robot did not spawn (no /odom after 150 s). See $LOG/sim.log"; exit 1
+fi
+echo "      robot spawned"
 sleep 5
 
 echo "[2/4] map_server + AMCL + Nav2                          (log: $LOG/nav2.log)"
