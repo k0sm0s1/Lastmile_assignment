@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <!-- Unmapped obstacle for the obstacle-avoidance mode: 0.4 x 0.4 x 0.6 m,
+       static, bright orange so it reads in the demo video. It is NOT in
+       lastmile_map.pgm - the robot only learns about it from its lidar. -->
+  <model name="obstacle_box">
+    <static>true</static>
+    <link name="link">
+      <pose>0 0 0.3 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.4 0.4 0.6</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.4 0.4 0.6</size></box></geometry>
+        <material>
+          <ambient>0.95 0.45 0.1 1</ambient>
+          <diffuse>0.95 0.45 0.1 1</diffuse>
+          <specular>0.2 0.2 0.2 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

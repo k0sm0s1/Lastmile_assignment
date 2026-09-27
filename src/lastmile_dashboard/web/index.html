@@ -78,7 +78,7 @@
   <div id="mapwrap">
     <canvas id="cv"></canvas>
     <div class="legend"><span><i style="background:var(--robot)"></i>robot</span><span><i style="background:var(--plan)"></i>global plan</span>
-      <span><i style="background:var(--scan)"></i>lidar</span><span><i style="background:var(--warn)"></i>goal</span></div>
+      <span><i style="background:var(--scan)"></i>lidar</span><span><i style="background:var(--warn)"></i>goal</span><span><i style="background:var(--bad)"></i>detected obstacle</span></div>
     <div id="hint"><b>Click</b> the map to send a goal · <b>click-drag</b> to set heading ·
       <b>scroll</b> to zoom · <b>right-drag</b> to pan · <span id="modehint">mode: goal</span></div>
     <div id="cursor">x —  y —</div>
@@ -178,6 +178,10 @@
         // lidar
         ctx.fillStyle = 'rgba(255,122,182,.85)'; const r = Math.max(1.5, view.s * 0.6);
         (S.scan || []).forEach(([x, y]) => { const [a, b] = w2c(x, y); ctx.fillRect(a - r / 2, b - r / 2, r, r); });
+        // obstacles detected live by obstacle_mapper (obstacle mode)
+        (S.obstacles || []).forEach(o => { const [a, b] = w2c(o.x, o.y), R = Math.max(5 * devicePixelRatio, 0.25 / meta.resolution * view.s);
+          ctx.strokeStyle = '#ff5d5d'; ctx.fillStyle = 'rgba(255,93,93,.28)'; ctx.lineWidth = 2 * devicePixelRatio;
+          ctx.beginPath(); ctx.rect(a - R, b - R, 2 * R, 2 * R); ctx.fill(); ctx.stroke(); });
         // plan
         if (plan.length > 1 && S.nav && ['navigating', 'sending'].includes(S.nav.state)) {
           ctx.strokeStyle = '#4ea1ff'; ctx.lineWidth = 2.5 * devicePixelRatio; ctx.beginPath();
@@ -274,7 +278,8 @@
       `<span>AMCL localized <span class="muted">(map→odom ${h.map_odom_age == null ? 'missing' : f(h.map_odom_age, 1) + 's'}) ${cov}</span></span>${pill(h.localized, h.localized ? 'yes' : 'no')}` +
       `<span>Nav2 lifecycle</span>${pill(h.nav2_active, h.nav2_active ? 'all active' : 'not ready')}` +
       Object.entries(lc).map(([k, v]) => `<span class="muted" style="padding-left:10px">${k}</span><span class="muted">${v}</span>`).join('') +
-      `<span>robot_state_manager</span>${pill(h.task3_node, h.task3_node ? 'publishing' : 'silent')}`;
+      `<span>robot_state_manager</span>${pill(h.task3_node, h.task3_node ? 'publishing' : 'silent')}` +
+      ((S.obstacles && S.obstacles.length) ? `<span>obstacles detected (lidar)</span><span class="pill warn">${S.obstacles.length}</span>` : '');
     $('hist').innerHTML = (S.history || []).slice().reverse().map(r => { const res = r.result || 'pending';
       return `<tr><td>${r.id}</td><td>(${f(r.x, 1)}, ${f(r.y, 1)})</td><td>${r.sent}</td><td class="r-${res}">${res}</td><td>${r.nav_time_s != null ? f(r.nav_time_s, 0) + 's' : ''}</td><td>${r.error_m != null ? f(r.error_m) + 'm' : ''}</td></tr>`; }).join('')
       || '<tr><td colspan="6" class="muted">no goals yet</td></tr>';

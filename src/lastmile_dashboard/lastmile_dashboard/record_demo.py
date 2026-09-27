@@ -177,7 +177,10 @@ def main():
         node.get_logger().error("no camera frames on /demo_cam/chase/image_raw")
         return
     H, W = node.frame.shape[:2]
-    vw = cv2.VideoWriter(node.out, cv2.VideoWriter_fourcc(*"mp4v"), node.fps, (W, H))
+    # MJPG/.avi writes each frame self-contained, so the file stays readable even
+    # if the process dies at shutdown; scripts/record_demo.sh converts it to .mp4.
+    fourcc = "MJPG" if node.out.lower().endswith(".avi") else "mp4v"
+    vw = cv2.VideoWriter(node.out, cv2.VideoWriter_fourcc(*fourcc), node.fps, (W, H))
     node.get_logger().info(f"recording {W}x{H} @ {node.fps} fps -> {node.out}")
     t0 = time.time()
     n = 0
@@ -192,7 +195,7 @@ def main():
             break
     vw.release()
     node.get_logger().info(f"wrote {n} frames to {node.out}")
-    rclpy.try_shutdown()
+    os._exit(0)  # skip rclpy teardown with the spin thread still running (it aborted there)
 
 
 if __name__ == "__main__":

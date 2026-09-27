@@ -169,6 +169,62 @@ forwards it to Windows).
   of every Nav2 server, Task 3 node publishing;
 * waypoint history with results.
 
+## Obstacle-avoidance mode (extra)
+
+![Obstacle mode: the robot approaching the orange slalom boxes](docs/demo_obstacles_frame.jpg)
+
+**Video:** [docs/demo_obstacles.mp4](docs/demo_obstacles.mp4)
+
+Three unmapped boxes in a slalom along the middle of the E–W corridor, and
+live lidar obstacle detection so Nav2 plans around them. The boxes exist only
+in Gazebo — they are **not** in `lastmile_map.pgm`; the robot learns about
+them from `/scan` while driving.
+
+```bash
+OBSTACLES=1 bash scripts/run_demo.sh          # boxes + obstacle_mapper + obstacle params
+python3 scripts/obstacle_test.py 12.5 0.0     # drive the slalom, report clearances vs ground truth
+OBSTACLES=1 WPS="12.5,0.0" bash scripts/record_demo.sh   # video -> ~/lastmile_logs/demo.mp4
+```
+
+| Box (0.4 × 0.4 × 0.6 m) | Position | Robot passed | Mean y there | Closest surface clearance |
+|---|---|---|---|---|
+| obstacle_1 | (4.5, +0.35) | below | −0.36 | 0.28 m |
+| obstacle_2 | (6.5, −0.35) | above | +0.35 | 0.30 m |
+| obstacle_3 | (10.5, +0.35) | below | −0.46 | 0.39 m |
+
+Goal (12.5, 0): **succeeded, 0 recoveries, final error 0.23 m (verified)**.
+Detected box centres: (4.43, 0.34), (6.40, −0.35), (10.39, 0.33) — within ~10 cm.
+
+**How it works — `src/lastmile_obstacles/obstacle_mapper.py`**
+
+1. Keeps an *evidence grid* on the same cells as `/map`.
+2. Every scan (≤ 5 Hz), each beam is projected into the map through TF
+   (`map ← base_scan`, latest transform — no message filter):
+   * cells the beam passes through lose evidence (−1) — this is what clears an
+     obstacle that has moved away;
+   * the hit cell gains evidence (+3) **unless** it is a mapped wall (+20 cm
+     margin, since AMCL is ±15 cm) or unscanned space.
+3. Cells with evidence ≥ 6 (two consistent scans) are obstacles; they're grown
+   by one cell because the lidar only sees the front face.
+4. Publishes `/obstacle_map` = the `/map` walls + the detections, latched, 2 Hz,
+   and a JSON cluster report on `/obstacle_mapper/obstacles`
+   (`new obstacle detected at (x, y)` in the log; red squares on the dashboard).
+5. Both costmaps (`params/nav2_params_obstacles.yaml`) read `/obstacle_map`
+   through a **second `StaticLayer`**, then inflate it. The planner replans
+   around new obstacles every second, the controller steers around them.
+
+**Why not the stock ObstacleLayer?** It is exactly the layer that froze the
+costmaps at start-up in this setup (tf2 MessageFilter deadlock, see the
+debugging table). A StaticLayer only copies a grid, so it can't freeze; all the
+sensor processing lives in our node, where it's visible and testable.
+
+Default mode is untouched: without `OBSTACLES=1` no boxes are spawned, the
+node doesn't run, and `nav2_params.yaml` is used.
+
+Limitation: the map builder dropped some low/sparse real geometry (plants, a
+bench edge); the lidar sees it, so `obstacle_mapper` marks it too. It's real
+geometry, so this is correct behaviour — it just isn't a "box".
+
 ## Running it
 
 ```bash
@@ -225,7 +281,8 @@ scripts/                             offline pipeline + run_demo.sh, waypoint_te
 src/lastmile_description/            Task 1: world, scanned model, spawn launch
 src/lastmile_navigation/             Task 2: map, Nav2/AMCL params, bringup launch
 src/robot_state_manager/             Task 3: the custom node
-src/lastmile_dashboard/              web dashboard
+src/lastmile_dashboard/              web dashboard + demo recorder
+src/lastmile_obstacles/              obstacle mode: live lidar obstacle_mapper
 src/lastmile_bot_description/        optional: a custom delivery-bot model (not used in the results)
 src/lastmile_bot_animator/           optional: its cosmetic idle animation
 ```

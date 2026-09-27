@@ -103,6 +103,9 @@ class Dashboard(Node):
         self.create_subscription(Path, "/plan", self.on_plan, 10)
         self.create_subscription(LaserScan, "/scan", self.on_scan, sensor)
         self.create_subscription(PoseWithCovarianceStamped, "/amcl_pose", self.on_amcl, latched)
+        # obstacle mode only: clusters found by lastmile_obstacles/obstacle_mapper
+        self.obstacles = []
+        self.create_subscription(String, "/obstacle_mapper/obstacles", self.on_obstacles, 10)
 
         self.goal_pub = self.create_publisher(PoseStamped, "/robot/next_waypoint", 10)
         self.cancel_pub = self.create_publisher(Empty, "/robot/cancel", 10)
@@ -170,6 +173,14 @@ class Dashboard(Node):
                 self.alerts.append({"t": time.strftime("%H:%M:%S"), "kind": kind,
                                     "v": cv.get("v"), "w": cv.get("w")})
                 self.alerts = self.alerts[-30:]
+
+    def on_obstacles(self, m):
+        try:
+            clusters = json.loads(m.data).get("clusters", [])
+        except ValueError:
+            return
+        with self.lock:
+            self.obstacles = clusters
 
     def on_cmd(self, m):
         with self.lock:
@@ -245,6 +256,7 @@ class Dashboard(Node):
                     "task3_node": bool(s) and hz > 5.0,
                 },
                 "history": self.history[-12:], "alerts": self.alerts[-10:],
+                "obstacles": self.obstacles,
             }
             if plan_known != self.plan_id:
                 snap["plan"] = self.plan

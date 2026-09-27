@@ -3,6 +3,7 @@
 # -> robot_state_manager (Task 3) -> web dashboard (http://localhost:8080).
 # Usage: bash scripts/run_demo.sh          (headless Gazebo)
 #        GUI=1 bash scripts/run_demo.sh    (with the Gazebo client window)
+#        OBSTACLES=1 bash scripts/run_demo.sh  (3 unmapped boxes + live lidar obstacle avoidance)
 #        bash scripts/run_demo.sh stop     (kill everything this script starts)
 
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,21 +17,23 @@ export TURTLEBOT3_MODEL=waffle
 stop_all() {
   pkill -INT -f "ros2 launch (lastmile_description|lastmile_navigation|robot_state_manager|lastmile_dashboard)" 2>/dev/null
   sleep 4
-  pkill -9 -f "gzserver|gzclient|nav2_amcl/amcl|nav2_map_server|bt_navigator|controller_server|planner_server|behavior_server|lifecycle_manager|robot_state_manager_node|robot_state_publisher|dashboard_node" 2>/dev/null
+  pkill -9 -f "gzserver|gzclient|nav2_amcl/amcl|nav2_map_server|bt_navigator|controller_server|planner_server|behavior_server|lifecycle_manager|robot_state_manager_node|robot_state_publisher|dashboard_node|obstacle_mapper" 2>/dev/null
   ros2 daemon stop >/dev/null 2>&1
 }
 if [ "${1:-}" = "stop" ]; then stop_all; echo "stopped"; exit 0; fi
 
 stop_all; ros2 daemon start >/dev/null 2>&1
 GUI_ARG=false; [ "${GUI:-0}" = "1" ] && GUI_ARG=true
+OBS_ARG=false; [ "${OBSTACLES:-0}" = "1" ] && OBS_ARG=true
 
+[ "$OBS_ARG" = true ] && echo "      obstacle mode: 3 unmapped boxes + obstacle_mapper"
 echo "[1/4] Gazebo + scanned world + TurtleBot3 at (0,0,0)   (log: $LOG/sim.log)"
-setsid nohup ros2 launch lastmile_description spawn_world.launch.py gui:=$GUI_ARG > "$LOG/sim.log" 2>&1 &
+setsid nohup ros2 launch lastmile_description spawn_world.launch.py gui:=$GUI_ARG obstacles:=$OBS_ARG > "$LOG/sim.log" 2>&1 &
 for i in $(seq 1 60); do ros2 topic list 2>/dev/null | grep -q "^/odom$" && break; sleep 1; done
 sleep 5
 
 echo "[2/4] map_server + AMCL + Nav2                          (log: $LOG/nav2.log)"
-setsid nohup ros2 launch lastmile_navigation bringup_nav2.launch.py > "$LOG/nav2.log" 2>&1 &
+setsid nohup ros2 launch lastmile_navigation bringup_nav2.launch.py obstacles:=$OBS_ARG > "$LOG/nav2.log" 2>&1 &
 for i in $(seq 1 90); do
   [ "$(timeout 5 ros2 lifecycle get /bt_navigator 2>/dev/null | cut -d' ' -f1)" = "active" ] && break; sleep 2
 done

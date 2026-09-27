@@ -12,7 +12,8 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from nav2_common.launch import RewrittenYaml
 
@@ -21,6 +22,10 @@ def generate_launch_description():
     nav_pkg_share = get_package_share_directory("lastmile_navigation")
     default_map = os.path.join(nav_pkg_share, "maps", "lastmile_map.yaml")
     default_params = os.path.join(nav_pkg_share, "params", "nav2_params.yaml")
+    obstacle_params = os.path.join(nav_pkg_share, "params", "nav2_params_obstacles.yaml")
+    obstacles = LaunchConfiguration("obstacles")
+    # obstacles:=true switches the default params to the obstacle-mode file
+    params_default = PythonExpression(["'", obstacle_params, "' if '", obstacles, "' == 'true' else '", default_params, "'"])
 
     map_yaml = LaunchConfiguration("map")
     params_file = LaunchConfiguration("params_file")
@@ -40,7 +45,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument("map", default_value=default_map),
-        DeclareLaunchArgument("params_file", default_value=default_params),
+        DeclareLaunchArgument("obstacles", default_value="false",
+                              description="live lidar obstacle avoidance (obstacle_mapper + extra costmap layer)"),
+        DeclareLaunchArgument("params_file", default_value=params_default),
         DeclareLaunchArgument("use_sim_time", default_value="true"),
 
         Node(
@@ -77,5 +84,11 @@ def generate_launch_description():
             package="nav2_lifecycle_manager", executable="lifecycle_manager",
             name="lifecycle_manager_navigation", output="screen",
             parameters=[{"use_sim_time": use_sim_time, "autostart": True, "node_names": lifecycle_nodes}],
+        ),
+        # obstacle mode: live lidar obstacles -> /obstacle_map
+        Node(
+            package="lastmile_obstacles", executable="obstacle_mapper", name="obstacle_mapper",
+            output="screen", condition=IfCondition(obstacles),
+            parameters=[{"use_sim_time": use_sim_time}],
         ),
     ])

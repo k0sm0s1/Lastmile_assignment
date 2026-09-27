@@ -29,6 +29,12 @@ SPAWN_Y = "0.0"
 SPAWN_Z = "0.10"
 SPAWN_YAW = "0.0"
 
+# Obstacle mode (obstacles:=true): three unmapped boxes in a slalom along the
+# middle of the east-west corridor (free width there is about y -0.85 .. 0.8).
+# Each leaves a ~1 m gap for the 0.44 m robot and stays clear of the north-arm
+# junction (x 7.5-10). They are NOT in lastmile_map.pgm.
+OBSTACLES = [("obstacle_1", 4.5, 0.35), ("obstacle_2", 6.5, -0.35), ("obstacle_3", 10.5, 0.35)]
+
 
 def generate_launch_description():
     pkg_share = get_package_share_directory("lastmile_description")
@@ -65,8 +71,18 @@ def generate_launch_description():
         launch_arguments={"use_sim_time": "true"}.items(),
     )
 
+    obstacle_sdf = os.path.join(pkg_share, "models", "obstacle_box", "model.sdf")
+    spawn_obstacles = [
+        Node(package="gazebo_ros", executable="spawn_entity.py", name=f"spawn_{name}", output="screen",
+             condition=IfCondition(LaunchConfiguration("obstacles")),
+             arguments=["-entity", name, "-file", obstacle_sdf, "-x", str(x), "-y", str(y), "-z", "0.0"])
+        for name, x, y in OBSTACLES
+    ]
+
     return LaunchDescription([
         DeclareLaunchArgument("gui", default_value="true"),
+        DeclareLaunchArgument("obstacles", default_value="false",
+                              description="spawn the three unmapped slalom boxes"),
         # Set false when spawning a different robot into this world instead
         # (e.g. lastmile_bot_description's spawn_lastmile_bot.launch.py) -
         # both robots' diff-drive plugins listen on /cmd_vel.
@@ -77,4 +93,5 @@ def generate_launch_description():
         gzclient_launch,
         tb3_state_publisher,
         spawn_tb3,
+        *spawn_obstacles,
     ])
