@@ -30,7 +30,7 @@ Gazebo's ground-truth model pose at every arrival).
 | `/cmd_vel` threshold monitor | ✅ logs every excursion (e.g. `linear speed 0.220 m/s exceeds threshold 0.20 m/s`, `angular speed 1.000 rad/s exceeds threshold 0.80 rad/s (turning fast)`) |
 | Dashboard: send goals, live pose/map/plan/lidar, cmd_vel, nav status, health, history | ✅ `http://localhost:8080` |
 | Obstacle mode: 3 unmapped boxes found by lidar and avoided | ✅ slalom to (12.5, 0), 0 recoveries, 0.33–0.47 m clearance ([details](#obstacle-avoidance-mode-extra)) |
-| Delivery page: pick A and B from 10 places, Loaded/Unloaded, return to dock, stays inside the building | ✅ 5 missions across the whole building with obstacles on ([details](#delivery-mode-extra)) |
+| Delivery page: pick A and B from 10 places, Loaded/Unloaded, return to dock, stays inside the building | ✅ 8 of 9 missions across the whole building with obstacles on (the one failure fixed and re-run) ([details](#delivery-mode-extra)) |
 
 Multi-waypoint run through `/robot/next_waypoint` (cold start, TurtleBot3 at origin):
 
@@ -41,6 +41,15 @@ Multi-waypoint run through `/robot/next_waypoint` (cold start, TurtleBot3 at ori
 | 3 | (15.5, −3.0) south room | ✅ succeeded, 1 recovery | 145 s | (15.40, −2.84) | (15.56, −2.85) | 0.16 m |
 
 (Goal tolerance is 0.25 m; "wall time" includes Gazebo running at ~0.8× real time. This is the run in the demo video.)
+
+Re-run after adding the bounded planning map (`/nav_map`, see Task 2), same cold start:
+
+| # | Goal (map) | Result | Wall time | Localized pose at arrival | Gazebo ground truth | AMCL error |
+|---|---|---|---|---|---|---|
+| 1 | (8.0, 0.0) E corridor | ✅ succeeded, 0 recoveries | 43 s | (7.76, −0.10) | (7.96, −0.08) | 0.20 m |
+| 2 | (8.8, 5.0) north arm | ✅ succeeded, 0 recoveries | 35 s | (8.87, 4.78) | (8.86, 4.90) | 0.12 m |
+| 3 | (15.5, −3.0) south room | ✅ succeeded, 6 recoveries | 144 s | (15.43, −2.83) | (15.58, −2.79) | 0.16 m |
+| 4 | (0.0, 0.0) home | ✅ succeeded, 1 recovery | 103 s | (0.02, 0.02) | (0.04, 0.12) | 0.10 m |
 
 ---
 
@@ -121,7 +130,7 @@ exactly where the assignment asks.
    wall has a scan gap (the corridor's north wall around x = 2–6 m), the
    planner could route *through* the gap into unscanned space outside the
    building. `scripts/make_nav_map.py` derives `lastmile_nav_map.pgm`: identical
-   inside the cleaned building outline (+15 cm), occupied everywhere outside it.
+   inside the cleaned building outline (+35 cm, because the tidied outline trims some half-scanned real floor), occupied everywhere outside it.
    A second map_server (`nav_map_server`) publishes it on `/nav_map`, and both
    costmaps' static layers read `/nav_map`; **AMCL keeps localising on the
    honest `/map`**. Two small round **corner keep-outs** at the mouth of the
@@ -316,6 +325,10 @@ as soon as the page enables them:
 | Print Room → Reception | ✅ delivered | 4 min 33 s | the route that used to stall at the arm's mouth |
 | Meeting Room → Lab | ✅ delivered | 7 min 39 s | one automatic un-stick on the way back to the dock |
 | East Hall → Library | ✅ delivered | 4 min 47 s | after the slalom re-test |
+| Mailroom → Server Room | ✅ delivered | 3 min 48 s | |
+| Kitchen → Office 2B | ❌ stopped | — | stalled in the north arm next to scanned clutter; the bounded map's 15 cm margin had trimmed half-scanned floor there. Margin raised to 35 cm → |
+| Kitchen → Office 2B (re-run) | ✅ delivered | 3 min 23 s | after the margin fix |
+| Print Room → Reception (re-run) | ✅ delivered | 5 min 16 s | one automatic un-stick on the pickup leg |
 
 For the first run, every `/plan` point and every robot position was also checked
 against the building outline (about 76,000 path points), and none were outside.

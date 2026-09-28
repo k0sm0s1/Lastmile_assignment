@@ -33,7 +33,9 @@ sys.path.insert(0, os.path.join(ROOT, "src", "lastmile_dashboard", "lastmile_das
 import floorplan as fpm  # noqa: E402
 
 MAPS = os.path.join(ROOT, "src", "lastmile_navigation", "maps")
-MARGIN = 3  # cells (0.15 m) of slack around the floor mask
+MARGIN = 7  # cells (0.35 m) of slack around the floor mask: the regularised outline trims
+            # some half-scanned real floor (west side of the north arm), and 0.15 m
+            # left too narrow a gap beside the scanned clutter mid-arm
 # Corner keep-outs, (x, y, radius) in metres: the two wall corners at the mouth of
 # the north arm. DWB tends to cut a tight 90-degree turn, and at these corners
 # that put the robot inside the wall's inscribed zone, where NavFn can't plan
