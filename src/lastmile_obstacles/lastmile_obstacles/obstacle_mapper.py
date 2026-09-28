@@ -20,7 +20,7 @@ obstacle avoidance back in a way that can't freeze:
     - cell is an obstacle while evidence >= THRESH
         |
         v
-  /obstacle_map  (nav_msgs/OccupancyGrid: the /map walls + detections = 100)
+  /obstacle_map  (nav_msgs/OccupancyGrid: the /nav_map walls + detections = 100)
         |
         v
   both costmaps read it through a *second StaticLayer* (use_maximum: true),
@@ -61,7 +61,7 @@ class ObstacleMapper(Node):
     def __init__(self):
         super().__init__("obstacle_mapper")
         p = self.declare_parameter
-        p("wall_margin", 0.20)        # m: hits this close to a mapped wall are the wall (AMCL error ~0.15 m)
+        p("wall_margin", 0.30)        # m: hits this close to a mapped wall are the wall (AMCL error ~0.15 m + wall fragments)
         p("min_range", 0.30)          # m: ignore self-hits on the robot body
         p("max_range", 3.4)           # m: beyond this the lidar is unreliable / hits nothing
         p("hit_gain", 3)              # evidence added per hit
@@ -71,7 +71,8 @@ class ObstacleMapper(Node):
         p("beam_step", 3)             # use every Nth beam
         p("scan_rate_hz", 5.0)        # max scans processed per second
         p("publish_rate_hz", 2.0)
-        p("inflate_cells", 1)         # grow detections by this many cells (laser sees only the front face)
+        p("inflate_cells", 2)         # grow detections by 10 cm: the laser sees only the front face, and DWB
+                                      # likes to shave past obstacles when the route turns right after one
         p("report_min_cells", 20)     # only clusters this big are logged/reported (all cells still go to the costmap)
         g = lambda n: self.get_parameter(n).value  # noqa: E731
         self.wall_margin = float(g("wall_margin"))
@@ -96,6 +97,11 @@ class ObstacleMapper(Node):
                              reliability=ReliabilityPolicy.RELIABLE)
         sensor = QoSProfile(depth=5, reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST)
         self.create_subscription(OccupancyGrid, "/map", self.on_map, latched)
+        # The global costmap is not size-locked, so every /obstacle_map message makes
+        # it re-match all layers, which wipes the other StaticLayer's copy of
+        # /nav_map. So this layer has to carry the bounded walls itself.
+        self.nav_base = None
+        self.create_subscription(OccupancyGrid, "/nav_map", self.on_nav_map, latched)
         self.create_subscription(LaserScan, "/scan", self.on_scan, sensor)
         self.pub = self.create_publisher(OccupancyGrid, "/obstacle_map", latched)
         self.info_pub = self.create_publisher(String, "/obstacle_mapper/obstacles", 10)
@@ -112,10 +118,19 @@ class ObstacleMapper(Node):
         unknown = grid < 0
         self.known = walls | unknown
         self.base = np.array(m.data, dtype=np.int8)  # published underneath the detections
+        if self.nav_base is not None and self.nav_base.size == self.base.size:
+            self.base = self.nav_base
         self.info = m.info
         self.evidence = np.zeros((h, w), np.int16)
         self.get_logger().info(f"/map {w}x{h} received; wall margin {margin} cells")
         self.publish()  # publish an empty obstacle map right away so the costmaps don't wait
+
+    def on_nav_map(self, m):
+        self.nav_base = np.array(m.data, dtype=np.int8)
+        if self.info is not None and self.nav_base.size == self.base.size:
+            self.base = self.nav_base
+        self.get_logger().info("/nav_map received: publishing the bounded walls under the detections")
+        self.publish()
 
     # ------------------------------------------------------------------ scan
     def on_scan(self, s):
@@ -179,7 +194,7 @@ class ObstacleMapper(Node):
         msg.header.frame_id = "map"
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.info = self.info
-        # Walls + unknown from /map, detections on top. Carrying the walls too
+        # Walls from /nav_map (or /map until it arrives), detections on top. Carrying the walls too
         # keeps the layer correct whether the costmap merges it by maximum or
         # by overwrite (rolling-window static layers overwrite in some versions).
         data = self.base.copy()

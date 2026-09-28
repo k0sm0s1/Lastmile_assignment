@@ -237,8 +237,11 @@ class RobotStateManager(Node):
     def _on_result(self, future, seq):
         status = future.result().status
         name = STATUS_NAMES.get(status, f"status_{status}")
-        log = self.get_logger().info if status == GoalStatus.STATUS_SUCCEEDED else self.get_logger().warn
-        log(f"NavigateToPose goal #{seq} finished: {name.upper()}")
+        # separate call sites: rclpy refuses to change a call site's severity between calls
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info(f"NavigateToPose goal #{seq} finished: SUCCEEDED")
+        else:
+            self.get_logger().warn(f"NavigateToPose goal #{seq} finished: {name.upper()}")
         if seq != self._goal_seq:  # a newer goal preempted this one; its result is not interesting
             return
         self._goal_handle = None

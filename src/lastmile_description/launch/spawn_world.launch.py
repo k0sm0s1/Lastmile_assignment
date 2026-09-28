@@ -33,7 +33,7 @@ SPAWN_YAW = "0.0"
 # middle of the east-west corridor (free width there is about y -0.85 .. 0.8).
 # Each leaves a ~1 m gap for the 0.44 m robot and stays clear of the north-arm
 # junction (x 7.5-10). They are NOT in lastmile_map.pgm.
-OBSTACLES = [("obstacle_1", 4.5, 0.35), ("obstacle_2", 6.5, -0.35), ("obstacle_3", 10.5, 0.35)]
+OBSTACLES = [("obstacle_1", 4.5, 0.45), ("obstacle_2", 6.5, -0.45), ("obstacle_3", 10.5, 0.45)]
 
 
 def generate_launch_description():

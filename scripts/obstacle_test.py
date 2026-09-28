@@ -21,7 +21,7 @@ from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 
-BOXES = {"obstacle_1": (4.5, 0.35), "obstacle_2": (6.5, -0.35), "obstacle_3": (10.5, 0.35)}
+BOXES = {"obstacle_1": (4.5, 0.45), "obstacle_2": (6.5, -0.45), "obstacle_3": (10.5, 0.45)}
 HALF = 0.20       # box half-size
 ROBOT_R = 0.22    # TurtleBot3 Waffle footprint radius used by Nav2
 

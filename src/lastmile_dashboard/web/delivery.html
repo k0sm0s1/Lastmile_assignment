@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lastmile Delivery</title>
+<style>
+  /* One deliberate look: Apple's light system palette, like Apple Maps' indoor view. */
+  :root {
+    --bg: #f5f5f7; --card: #ffffff; --well: #f5f5f7; --text: #1d1d1f; --text2: #6e6e73; --text3: #aeaeb2;
+    --sep: rgba(60,60,67,.12); --fill: rgba(118,118,128,.10); --fill2: rgba(118,118,128,.16);
+    --blue: #007aff; --green: #34c759; --orange: #ff9500; --red: #ff3b30;
+    --ground: #eef0f3; --floor: #ffffff; --wall: #c7c7cc; --label: #8e8e93;
+    --shadow: 0 1px 1px rgba(0,0,0,.02), 0 6px 24px rgba(0,0,0,.06);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px;
+    line-height: 1.42; -webkit-font-smoothing: antialiased; letter-spacing: -.005em; }
+  .app { max-width: 1260px; margin: 0 auto; padding: 36px 28px 44px; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  .eyebrow { font-size: 13px; font-weight: 600; color: var(--text2); }
+  h1 { font-family: var(--display); font-size: 40px; line-height: 1.05; font-weight: 700; margin: 4px 0 0; letter-spacing: -.025em; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--card); padding: 8px 14px 8px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; box-shadow: var(--shadow); }
+  .pill .d { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); transition: background .3s; }
+  .pill.on .d { background: var(--green); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 22px; align-items: start; }
+  .card { background: var(--card); border-radius: 22px; box-shadow: var(--shadow); }
+  .mapcard { position: relative; overflow: hidden; background: var(--ground); aspect-ratio: 16 / 10.2; min-height: 330px; }
+  canvas { display: block; width: 100%; height: 100%; cursor: default; }
+  canvas.pick { cursor: crosshair; }
+  .glass { background: rgba(255,255,255,.72); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 1px 1px rgba(0,0,0,.03), 0 4px 16px rgba(0,0,0,.06); }
+  .hint { position: absolute; left: 16px; bottom: 16px; padding: 9px 14px; border-radius: 14px; font-size: 13px; font-weight: 500; }
+  .hint[hidden] { display: none; }
+  .legend { position: absolute; right: 16px; top: 16px; display: flex; gap: 14px; padding: 8px 13px; border-radius: 14px; font-size: 12px; color: var(--text2); font-weight: 500; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -.5px; }
+  aside { display: flex; flex-direction: column; gap: 18px; }
+  .pad { padding: 22px; }
+  .kicker { font-size: 13px; font-weight: 600; color: var(--text2); margin: 0 0 12px; }
+  /* guided stop picker: step 1 pickup, step 2 drop-off */
+  .ask { font-family: var(--display); font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; margin: 2px 0 6px; }
+  .ask-sub { color: var(--text2); margin: 0 0 18px; }
+  .flow { border-radius: 16px; background: var(--well); overflow: hidden; }
+  .fstep { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; border: 0; background: transparent; font: inherit;
+    color: inherit; text-align: left; position: relative; transition: background .25s, opacity .25s; cursor: pointer; }
+  .fstep + .fstep::before { content: ""; position: absolute; top: 0; left: 54px; right: 0; height: 1px; background: var(--sep); }
+  .fstep.locked { cursor: default; opacity: .45; }
+  .fstep.active { background: rgba(0,122,255,.07); }
+  .fstep .ln { flex: 1; min-width: 0; }
+  .fstep .l { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .fstep .v { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fstep .v.empty { color: var(--text3); font-weight: 500; }
+  .fstep .v.empty.now { color: var(--blue); }
+  .fstep .chg { font-size: 14px; font-weight: 500; color: var(--blue); display: none; }
+  .fstep.set:not(.active) .chg { display: inline; }
+  .badge { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; flex: none;
+    background: var(--text3); transition: background .3s, transform .3s; }
+  .fstep.active .badge.a, .fstep.set .badge.a { background: var(--green); }
+  .fstep.active .badge.b, .fstep.set .badge.b { background: var(--orange); }
+  .fstep.set .badge { animation: pop .38s cubic-bezier(.3,1.6,.5,1); }
+  .fstep.set .badge .k { display: none; } .fstep .badge svg { display: none; width: 14px; height: 14px; } .fstep.set .badge svg { display: block; }
+  @keyframes pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
+  .route-sum { display: none; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(52,199,89,.10);
+    font-size: 14px; font-weight: 600; color: #248a3d; }
+  .route-sum.show { display: flex; }
+  .shuffle { display: block; margin: 12px auto 0; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 500; color: var(--blue); cursor: pointer; padding: 6px; }
+  /* places, below the map */
+  .below { margin-top: 18px; }
+  .below-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .below-head h2 { font-family: var(--display); font-size: 20px; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+  .below-head .stepno { font-size: 13px; font-weight: 600; color: var(--text2); }
+  .below-head .stepno b { color: var(--blue); font-weight: 600; }
+  .places { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .place { border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; padding: 12px 12px 13px; border-radius: 16px; background: var(--well);
+    display: flex; flex-direction: column; gap: 1px; position: relative; min-height: 84px; transition: background .2s, box-shadow .25s, transform .1s, opacity .25s; }
+  .place:hover { background: var(--fill2); }
+  .place:active { transform: scale(.97); }
+  .place .num { width: 22px; height: 22px; border-radius: 50%; background: var(--card); color: var(--text2); font-size: 12px; font-weight: 700;
+    display: grid; place-items: center; margin-bottom: 7px; box-shadow: 0 0 0 1px var(--sep); transition: background .25s, color .25s; }
+  .place .t { font-weight: 600; font-size: 15px; } .place .s { font-size: 12px; color: var(--text2); }
+  .place .tag { position: absolute; top: 11px; right: 11px; padding: 2px 8px; border-radius: 99px; color: #fff; font-size: 11px; font-weight: 700; display: none; }
+  .place.isA { box-shadow: inset 0 0 0 2px var(--green); background: var(--card); animation: pop .35s cubic-bezier(.3,1.5,.5,1); }
+  .place.isA .tag { display: block; background: var(--green); } .place.isA .num { background: var(--green); color: #fff; box-shadow: none; }
+  .place.isB { box-shadow: inset 0 0 0 2px var(--orange); background: var(--card); animation: pop .35s cubic-bezier(.3,1.5,.5,1); }
+  .place.isB .tag { display: block; background: var(--orange); } .place.isB .num { background: var(--orange); color: #fff; box-shadow: none; }
+  .places.pickB .place.isA { opacity: .55; cursor: not-allowed; }
+  .places.locked .place:not(.isA):not(.isB) { opacity: .5; }
+  @media (max-width: 1180px) { .places { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (max-width: 720px) { .places { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .note { font-size: 13px; color: var(--text2); margin: 14px 2px 0; }
+  .btn { appearance: none; border: 0; width: 100%; border-radius: 14px; padding: 15px 18px; font: inherit; font-size: 17px; font-weight: 600;
+    cursor: pointer; transition: transform .1s, background .25s, color .25s, opacity .2s; }
+  .btn:active { transform: scale(.985); }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn.primary:disabled { background: var(--fill2); color: var(--text3); cursor: default; transform: none; }
+  .btn.gray { background: var(--fill); color: var(--blue); }
+  .btn.link { background: transparent; color: var(--red); font-size: 15px; font-weight: 500; padding: 8px; }
+  .btn:focus-visible, .fstep:focus-visible, .place:focus-visible, .act:focus-visible { outline: 3px solid rgba(0,122,255,.35); outline-offset: 2px; }
+  .gap { height: 18px; }
+  /* live status */
+  .st-kicker { font-size: 13px; font-weight: 600; color: var(--blue); display: flex; align-items: center; gap: 7px; }
+  .st-kicker.wait { color: var(--green); }
+  .st-kicker .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .st-title { font-family: var(--display); font-size: 28px; line-height: 1.12; font-weight: 700; letter-spacing: -.022em; margin: 6px 0 4px; }
+  .st-sub { color: var(--text2); }
+  .bar { height: 5px; background: var(--fill); border-radius: 99px; overflow: hidden; margin-top: 16px; }
+  .bar > div { height: 100%; width: 3%; border-radius: 99px; background: var(--blue); transition: width .7s ease, background .3s; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+  .act { border: 0; font: inherit; border-radius: 18px; padding: 18px 12px 15px; display: flex; flex-direction: column; align-items: center; gap: 7px;
+    background: var(--well); color: var(--text3); cursor: default; transition: background .35s, color .35s, box-shadow .35s, transform .1s; }
+  .act svg { width: 28px; height: 28px; }
+  .act .n { font-size: 16px; font-weight: 700; } .act .h { font-size: 12px; font-weight: 500; }
+  .act.ready { color: #fff; cursor: pointer; background: var(--green); box-shadow: 0 10px 26px rgba(52,199,89,.35); animation: lift 2.4s ease-in-out infinite; }
+  .act.ready.b { background: var(--orange); box-shadow: 0 10px 26px rgba(255,149,0,.35); }
+  .act.ready:active { transform: scale(.97); }
+  .act.done { color: var(--green); background: rgba(52,199,89,.10); }
+  @keyframes lift { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+  /* timeline */
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .step { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; position: relative; padding-bottom: 15px; }
+  .step:last-child { padding-bottom: 0; }
+  .step:not(:last-child)::after { content: ""; position: absolute; left: 10px; top: 24px; bottom: 3px; width: 2px; background: var(--sep); border-radius: 2px; }
+  .step.done:not(:last-child)::after { background: var(--green); }
+  .mk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text3); display: grid; place-items: center; background: var(--card); z-index: 1; }
+  .mk svg { display: none; width: 12px; height: 12px; }
+  .step.done .mk { background: var(--green); border-color: var(--green); } .step.done .mk svg { display: block; }
+  .step.now .mk { border-color: var(--blue); box-shadow: 0 0 0 5px rgba(0,122,255,.14); }
+  .step.now .mk::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--blue); }
+  .step.wait .mk { border-color: var(--green); box-shadow: 0 0 0 5px rgba(52,199,89,.16); }
+  .step.wait .mk::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  .step .t { font-weight: 600; } .step .s { font-size: 13px; color: var(--text2); }
+  .step:not(.done):not(.now):not(.wait) .t { color: var(--text2); font-weight: 500; }
+  .step time { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; padding-top: 2px; }
+  /* result cards */
+  .center { text-align: center; }
+  .big-ic { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; margin: 2px auto 14px; }
+  .big-ic.ok { background: var(--green); } .big-ic.warn { background: var(--orange); }
+  .big-ic svg { width: 30px; height: 30px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+  .stat { background: var(--well); border-radius: 14px; padding: 11px 8px; }
+  .stat b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; } .stat span { font-size: 12px; color: var(--text2); }
+  .recent .r { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; font-size: 14px; }
+  .recent .r + .r { border-top: 1px solid var(--sep); }
+  .recent .r span:last-child { color: var(--text2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .toast { position: fixed; left: 50%; bottom: 30px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none; padding: 12px 18px;
+    border-radius: 14px; font-weight: 600; font-size: 14px; color: var(--text); transition: opacity .25s, transform .25s; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 940px) { .grid { grid-template-columns: 1fr; } .app { padding: 22px 16px 32px; } h1 { font-size: 34px; } }
+  @media (prefers-reduced-motion: reduce) { .pulse, .act.ready { animation: none; } * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <div class="eyebrow">Lastmile · Indoor delivery</div>
+      <h1>Delivery</h1>
+    </div>
+    <div class="pill" id="online"><span class="d"></span><span id="onlineTxt">Connecting</span></div>
+  </header>
+
+  <div class="grid">
+    <div>
+    <div class="card mapcard">
+      <canvas id="cv" aria-label="Floor plan with the robot and the delivery stops"></canvas>
+      <div class="legend glass"><span><i style="background:var(--blue)"></i>Robot</span><span><i style="background:var(--green)"></i>Pickup</span><span><i style="background:var(--orange)"></i>Drop-off</span></div>
+      <div class="hint glass" id="hint">Tap the floor plan to set the pickup</div>
+    </div>
+    <section class="card pad below" id="pgrid">
+      <div class="below-head"><h2 id="gridTitle">Choose a pickup point</h2><span class="stepno" id="stepno"><b>Step 1</b> of 2</span></div>
+      <div class="places" id="places"></div>
+    </section>
+    </div>
+
+    <aside>
+      <section class="card pad" id="plan">
+        <p class="kicker">New delivery</p>
+        <div class="ask" id="ask">Where should the robot pick up?</div>
+        <p class="ask-sub" id="askSub">Choose a pickup point from the places below the map, or tap the floor plan.</p>
+        <div class="flow">
+          <button class="fstep active" id="fA" type="button"><span class="badge a"><span class="k">A</span><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <span class="ln"><span class="l">Step 1 · Pickup</span><br><span class="v empty now" id="vA">Choose a pickup point</span></span><span class="chg">Change</span></button>
+          <button class="fstep locked" id="fB" type="button"><span class="badge b"><span class="k">B</span><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <span class="ln"><span class="l">Step 2 · Drop-off</span><br><span class="v empty" id="vB">After the pickup</span></span><span class="chg">Change</span></button>
+        </div>
+        <div class="route-sum" id="rsum"></div>
+        <div class="gap"></div>
+        <button class="btn primary" id="start" type="button" disabled>Start Delivery</button>
+        <button class="shuffle" id="shuffle" type="button">Surprise me: pick two random places</button>
+      </section>
+
+      <section class="card pad" id="live" hidden>
+        <div class="st-kicker" id="kick"><span class="pulse"></span><span id="kickTxt">On the way</span></div>
+        <div class="st-title" id="title">Heading to pickup</div>
+        <div class="st-sub" id="sub">Planning the route…</div>
+        <div class="bar" id="bar"><div></div></div>
+        <div class="actions">
+          <button class="act" id="loaded" type="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+            <span class="n">Loaded</span><span class="h" id="hL">At pickup</span></button>
+          <button class="act b" id="unloaded" type="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M8.5 12.5l3.5 3.5 3.5-3.5"/></svg>
+            <span class="n">Unloaded</span><span class="h" id="hU">At drop-off</span></button>
+        </div>
+        <div class="gap"></div>
+        <button class="btn link" id="cancel" type="button">Cancel Delivery</button>
+      </section>
+
+      <section class="card pad center" id="problem" hidden>
+        <div class="big-ic warn"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 7.5v6"/><path d="M12 17h.01"/></svg></div>
+        <div class="st-title" id="pT">Couldn’t reach the stop</div>
+        <div class="st-sub" id="pS">The robot stopped before arriving.</div>
+        <div class="gap"></div>
+        <button class="btn primary" id="retry" type="button">Try Again</button>
+        <div style="height:10px"></div>
+        <button class="btn gray" id="home" type="button">Return to Dock</button>
+      </section>
+
+      <section class="card pad center" id="done" hidden>
+        <div class="big-ic ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <div class="st-title" id="dT">Delivered</div>
+        <div class="st-sub" id="dS">The robot is back at the dock.</div>
+        <div class="stats" id="dStats"></div>
+        <button class="btn primary" id="again" type="button">New Delivery</button>
+      </section>
+
+      <section class="card pad" id="tl" hidden>
+        <p class="kicker">Progress</p>
+        <ol class="steps" id="steps"></ol>
+      </section>
+
+      <section class="card pad recent" id="rc" hidden>
+        <p class="kicker">Recent</p>
+        <div id="recent"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+<div class="toast glass" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const C = { blue: '#007aff', green: '#34c759', orange: '#ff9500', red: '#ff3b30', floor: '#ffffff', wall: '#c7c7cc', label: '#8e8e93', ground: '#eef0f3' };
+  const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  let fp = [], places = [], dock = { x: 0, y: 0 }, view = null, S = null, plan = [], picking = 'A', sel = { A: null, B: null };
+  let lastState = null, dismissed = null, legTotal = {};
+
+  const toast = m => { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); };
+  async function post(url, body) {
+    try { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+      const j = await r.json(); if (!j.ok) toast(j.error || 'Something went wrong'); return j; }
+    catch (e) { toast('Can’t reach the robot'); return { ok: false }; }
+  }
+  const hhmm = t => new Date(t * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const dur = s => s == null ? '–' : s < 60 ? `${Math.round(s)} s` : `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s`;
+
+  // ---------------- floor plan
+  async function load() {
+    try { const j = await (await fetch('/api/map')).json(); fp = j.floorplan || []; places = j.places; dock = j.dock; renderPlaces(); fit(); }
+    catch (e) { setTimeout(load, 1500); }
+  }
+  function fit() {
+    const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    if (!fp.length) return;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    fp.forEach(p => p.forEach(([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }));
+    const m = 34 * dpr, s = Math.min((cv.width - 2 * m) / (x1 - x0), (cv.height - 2 * m) / (y1 - y0));
+    view = { s, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+  addEventListener('resize', fit);
+  const w2c = (x, y) => [cv.width / 2 + (x - view.cx) * view.s, cv.height / 2 - (y - view.cy) * view.s];
+  const c2w = (a, b) => [view.cx + (a - cv.width / 2) / view.s, view.cy - (b - cv.height / 2) / view.s];
+
+  function pathOf(p) { ctx.beginPath(); p.forEach(([x, y], i) => { const [a, b] = w2c(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.closePath(); }
+  function pin(x, y, label, color) {
+    const [a, b] = w2c(x, y), d = devicePixelRatio || 1, R = 13 * d;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.22)'; ctx.shadowBlur = 10 * d; ctx.shadowOffsetY = 3 * d;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(a, b - R * 1.3, R + 2.5 * d, 0, 7); ctx.fill(); ctx.restore();
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(a, b - R * 1.3, R, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(a - 4 * d, b - R * .42); ctx.lineTo(a, b); ctx.lineTo(a + 4 * d, b - R * .42); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `700 ${13 * d}px -apple-system, "Segoe UI", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, a, b - R * 1.3 + .5 * d);
+  }
+  function draw(t) {
+    requestAnimationFrame(draw);
+    const d = devicePixelRatio || 1;
+    ctx.fillStyle = C.ground; ctx.fillRect(0, 0, cv.width, cv.height);
+    if (!view) return;
+    // building: soft shadow, floor, walls
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.08)'; ctx.shadowBlur = 18 * d; ctx.shadowOffsetY = 4 * d; ctx.fillStyle = C.floor;
+    fp.forEach(p => { pathOf(p); ctx.fill(); }); ctx.restore();
+    ctx.lineJoin = 'round'; ctx.strokeStyle = C.wall; ctx.lineWidth = Math.max(2, .09 * view.s);
+    fp.forEach(p => { pathOf(p); ctx.stroke(); });
+    const [da, db] = w2c(dock.x, dock.y);
+    // dock marker
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(da, db, 9 * d, 0, 7); ctx.fill();
+    ctx.strokeStyle = C.label; ctx.lineWidth = 1.5 * d; ctx.stroke();
+    ctx.strokeStyle = C.label; ctx.lineWidth = 1.6 * d; ctx.beginPath(); ctx.moveTo(da - 4 * d, db + 3 * d); ctx.lineTo(da - 4 * d, db - 1 * d); ctx.lineTo(da, db - 4.5 * d);
+    ctx.lineTo(da + 4 * d, db - 1 * d); ctx.lineTo(da + 4 * d, db + 3 * d); ctx.stroke();
+    const ms = S && S.mission, moving = ms && ['to_pickup', 'to_dropoff', 'returning'].includes(ms.state);
+    // route (Apple Maps style: blue line with a white casing)
+    if (moving && plan.length > 1) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const route = () => { ctx.beginPath(); plan.forEach(([x, y], i) => { const [a, b] = w2c(x, y); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); };
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 9 * d; route(); ctx.stroke();
+      ctx.strokeStyle = C.blue; ctx.lineWidth = 5.5 * d; route(); ctx.stroke();
+    }
+    // obstacles the robot's lidar found (only inside the building)
+    (S && S.obstacles || []).forEach(o => { const [a, b] = w2c(o.x, o.y), R = Math.max(6 * d, .22 * view.s);
+      ctx.fillStyle = 'rgba(255,149,0,.16)'; ctx.strokeStyle = 'rgba(255,149,0,.9)'; ctx.lineWidth = 1.5 * d;
+      ctx.beginPath(); ctx.roundRect(a - R, b - R, 2 * R, 2 * R, 5 * d); ctx.fill(); ctx.stroke(); });
+    // place dots, numbered like the list below the map (hidden under an A/B pin)
+    const pA = ms && ms.state !== 'delivered' ? ms.pickup : sel.A, pB = ms && ms.state !== 'delivered' ? ms.dropoff : sel.B;
+    places.forEach((p, i) => { if (same(p, pA) || same(p, pB)) return; const [a, b] = w2c(p.x, p.y);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(a, b, 7.5 * d, 0, 7); ctx.fill();
+      ctx.strokeStyle = C.wall; ctx.lineWidth = 1.2 * d; ctx.stroke();
+      ctx.fillStyle = C.label; ctx.font = `700 ${9 * d}px -apple-system, "Segoe UI", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(i + 1), a, b + .5 * d); });
+    // place labels, with a white halo like Apple Maps, above the route
+    ctx.font = `500 ${11.5 * d}px -apple-system, "Segoe UI", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 3.5 * d; ctx.fillStyle = C.label;
+    [...places.map(p => [p.name, p.x, p.y, 11]), ['Dock', dock.x, dock.y, 13]].forEach(([n, x, y, off]) => {
+      const [a, b] = w2c(x, y); ctx.strokeText(n, a, b + off * d); ctx.fillText(n, a, b + off * d); });
+    // stops
+    const A = ms && ms.state !== 'delivered' ? ms.pickup : sel.A, B = ms && ms.state !== 'delivered' ? ms.dropoff : sel.B;
+    if (A) pin(A.x, A.y, 'A', C.green);
+    if (B) pin(B.x, B.y, 'B', C.orange);
+    // robot: blue dot with white ring, heading cone and a soft halo
+    if (S && S.robot && S.robot.xyz) {
+      const [x, y] = S.robot.xyz, [a, b] = w2c(x, y), R = 7.5 * d, yaw = S.robot.yaw || 0, k = (Math.sin(t / 420) + 1) / 2;
+      ctx.fillStyle = `rgba(0,122,255,${.08 + .08 * k})`; ctx.beginPath(); ctx.arc(a, b, R * (2.6 + .5 * k), 0, 7); ctx.fill();
+      ctx.save(); ctx.translate(a, b); ctx.rotate(-yaw);
+      const g = ctx.createRadialGradient(0, 0, R, 0, 0, R * 4.2); g.addColorStop(0, 'rgba(0,122,255,.32)'); g.addColorStop(1, 'rgba(0,122,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * 4.2, -.55, .55); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 6 * d; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(a, b, R + 3 * d, 0, 7); ctx.fill(); ctx.restore();
+      ctx.fillStyle = C.blue; ctx.beginPath(); ctx.arc(a, b, R, 0, 7); ctx.fill();
+    }
+  }
+
+  // ---------------- planner: step 1 pickup (A) -> step 2 drop-off (B) -> start
+  function renderPlaces() {
+    $('places').innerHTML = places.map((p, i) => `<button class="place" type="button" data-id="${p.id}"><span class="num">${i + 1}</span><span class="tag"></span><span class="t">${p.name}</span><span class="s">${p.detail}</span></button>`).join('');
+    $('places').querySelectorAll('.place').forEach(b => b.onclick = () => { const p = places.find(q => q.id === b.dataset.id); choose({ id: p.id, name: p.name, x: p.x, y: p.y }); });
+    sync();
+  }
+  const same = (a, b) => a && b && Math.hypot(a.x - b.x, a.y - b.y) < .5;
+  function choose(stop) {
+    if (picking === 'done') { toast('Tap Change next to Pickup or Drop-off to edit a stop'); return; }
+    if (picking === 'A') {
+      sel.A = stop; if (same(sel.A, sel.B)) sel.B = null;
+      picking = sel.B ? 'done' : 'B'; toast(`Pickup set: ${stop.name}`);
+    } else {
+      if (same(sel.A, stop)) { toast(`${stop.name} is already the pickup. Choose a different drop-off`); return; }
+      sel.B = stop; picking = 'done'; toast(`Drop-off set: ${stop.name}`);
+    }
+    sync();
+  }
+  function sync() {
+    const labels = { A: ['Choose a pickup point', ''], B: [sel.A ? 'Choose a drop-off point' : 'After the pickup', ''] };
+    for (const k of ['A', 'B']) {
+      const v = $('v' + k), f = $('f' + k), active = picking === k;
+      v.textContent = sel[k] ? sel[k].name : labels[k][0]; v.classList.toggle('empty', !sel[k]); v.classList.toggle('now', !sel[k] && active);
+      f.classList.toggle('active', active); f.classList.toggle('set', !!sel[k]); f.classList.toggle('locked', k === 'B' && !sel.A);
+    }
+    const ask = { A: ['Where should the robot pick up?', 'Choose a pickup point from the places below the map, or tap the floor plan.'],
+                  B: ['Where should it be delivered?', `Picking up at ${sel.A ? sel.A.name : ''}. Now choose the drop-off point.`],
+                  done: ['Ready to go', 'Check the route, then start the delivery. The robot returns to the dock at the end.'] }[picking];
+    $('ask').textContent = ask[0]; $('askSub').textContent = ask[1];
+    $('gridTitle').textContent = { A: 'Choose a pickup point', B: 'Choose a drop-off point', done: 'Your stops' }[picking];
+    $('stepno').innerHTML = picking === 'done' ? '<b>Both stops set</b>' : `<b>Step ${picking === 'A' ? 1 : 2}</b> of 2`;
+    $('places').classList.toggle('pickB', picking === 'B'); $('places').classList.toggle('locked', picking === 'done');
+    $('places').querySelectorAll('.place').forEach(b => { const tag = b.querySelector('.tag');
+      const isA = !!(sel.A && sel.A.id === b.dataset.id), isB = !!(sel.B && sel.B.id === b.dataset.id);
+      b.classList.toggle('isA', isA); b.classList.toggle('isB', isB); tag.textContent = isA ? 'Pickup' : isB ? 'Drop-off' : ''; });
+    const rs = $('rsum'); rs.classList.toggle('show', picking === 'done');
+    if (sel.A && sel.B) rs.textContent = `${sel.A.name}  →  ${sel.B.name}  →  Dock`;
+    $('start').disabled = !(sel.A && sel.B);
+    $('hint').hidden = picking === 'done' || !!(S && S.mission && dismissed !== S.mission.id);
+    $('hint').textContent = `Tap the floor plan to set the ${picking === 'A' ? 'pickup' : 'drop-off'}`;
+  }
+  $('fA').onclick = () => { picking = 'A'; sync(); };
+  $('fB').onclick = () => { if (!sel.A) { toast('Choose the pickup point first'); return; } picking = 'B'; sync(); };
+  $('shuffle').onclick = () => {
+    if (places.length < 2) return;
+    const i = Math.floor(Math.random() * places.length); let j = Math.floor(Math.random() * (places.length - 1)); if (j >= i) j++;
+    const pk = p => ({ id: p.id, name: p.name, x: p.x, y: p.y });
+    sel = { A: pk(places[i]), B: pk(places[j]) }; picking = 'done'; sync(); toast(`${places[i].name} → ${places[j].name}`);
+  };
+  $('start').onclick = async () => { $('start').disabled = true; const j = await post('/api/mission', { pickup: sel.A, dropoff: sel.B }); if (!j.ok) $('start').disabled = false; };
+  cv.addEventListener('click', async e => {
+    if (!view || $('plan').hidden) return;
+    const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1, [x, y] = c2w((e.clientX - r.left) * d, (e.clientY - r.top) * d);
+    const j = await post('/api/snap', { x, y });
+    if (picking === 'done') { toast('Tap Change next to Pickup or Drop-off to edit a stop'); return; }
+    if (j.ok) { choose({ id: 'pin' + picking, name: picking === 'A' ? 'Pinned pickup' : 'Pinned drop-off', x: j.x, y: j.y }); if (j.moved_m > .3) toast('Moved to the nearest spot the robot can reach'); }
+  });
+
+  // ---------------- live mission
+  const STEPS = [['to_pickup', 'Heading to pickup'], ['at_pickup', 'Loading'], ['to_dropoff', 'Heading to drop-off'],
+                 ['at_dropoff', 'Unloading'], ['returning', 'Returning to dock'], ['delivered', 'Delivered']];
+  const ORDER = STEPS.map(s => s[0]);
+  function render() {
+    const on = S.robot && S.robot.online;
+    $('online').classList.toggle('on', !!on); $('onlineTxt').textContent = on ? (S.robot.moving ? 'Robot on the move' : 'Robot ready') : 'Robot offline';
+    let ms = S.mission; if (ms && dismissed === ms.id && ms.state === 'delivered') ms = null;
+    const st = ms ? ms.state : null, running = ms && st !== 'delivered';
+    $('plan').hidden = !!ms; $('pgrid').hidden = !!ms; $('hint').hidden = !!ms || picking === 'done'; cv.classList.toggle('pick', !ms && picking !== 'done');
+    $('live').hidden = !running || st === 'problem'; $('problem').hidden = st !== 'problem'; $('done').hidden = st !== 'delivered'; $('tl').hidden = !ms;
+    if (st !== lastState) { if (st === 'at_pickup') toast(`Arrived at ${ms.pickup.name}`); if (st === 'at_dropoff') toast(`Arrived at ${ms.dropoff.name}`); lastState = st; }
+    if (running && st !== 'problem') {
+      const wait = st === 'at_pickup' || st === 'at_dropoff', where = { to_pickup: ms.pickup.name, at_pickup: ms.pickup.name, to_dropoff: ms.dropoff.name, at_dropoff: ms.dropoff.name, returning: 'the dock' }[st];
+      $('kick').className = 'st-kicker' + (wait ? ' wait' : ''); $('kickTxt').textContent = wait ? 'Your turn' : ms.canceled ? 'Delivery canceled' : 'On the way';
+      $('title').textContent = wait ? `Arrived at ${where}` : st === 'returning' ? 'Returning to the dock' : `Heading to ${where}`;
+      const dist = ms.distance_m, key = ms.leg && ms.leg.sent;
+      if (dist != null && key && !legTotal[key]) legTotal[key] = dist;
+      $('sub').textContent = wait ? (st === 'at_pickup' ? 'Place the parcel on the robot, then tap Loaded.' : 'Take the parcel, then tap Unloaded.')
+        : dist == null ? 'Planning the route…' : `${dist.toFixed(1)} m to go${ms.eta_s ? ` · about ${dur(ms.eta_s)}` : ''}`;
+      const b = $('bar').firstElementChild, tot = legTotal[key];
+      b.style.width = wait ? '100%' : dist != null && tot ? `${Math.max(3, 100 * (1 - dist / tot))}%` : '3%';
+      b.style.background = wait ? 'var(--green)' : 'var(--blue)';
+      const i = ORDER.indexOf(st), L = $('loaded'), U = $('unloaded');
+      L.disabled = st !== 'at_pickup'; U.disabled = st !== 'at_dropoff';
+      L.className = 'act' + (st === 'at_pickup' ? ' ready' : i > 1 ? ' done' : ''); U.className = 'act b' + (st === 'at_dropoff' ? ' ready' : i > 3 ? ' done' : '');
+      $('hL').textContent = st === 'at_pickup' ? 'Tap when loaded' : i > 1 ? 'Done' : `At ${ms.pickup.name}`;
+      $('hU').textContent = st === 'at_dropoff' ? 'Tap when unloaded' : i > 3 ? 'Done' : `At ${ms.dropoff.name}`;
+      $('cancel').hidden = st === 'returning';
+    }
+    if (st === 'problem') {
+      const where = ms.resume === 'to_pickup' ? ms.pickup.name : ms.resume === 'returning' ? 'the dock' : ms.dropoff.name;
+      $('pT').textContent = `Couldn’t reach ${where}`;
+      $('pS').textContent = ms.problem && ms.problem.error_m != null ? `The robot stopped ${ms.problem.error_m.toFixed(1)} m short. Clear the way and try again.` : 'The robot stopped before arriving. Clear the way and try again.';
+    }
+    if (st === 'delivered') {
+      $('dT').textContent = ms.canceled ? 'Delivery canceled' : 'Delivered';
+      $('dS').textContent = ms.canceled ? 'The robot is back at the dock.' : `${ms.pickup.name} to ${ms.dropoff.name}. The robot is back at the dock.`;
+      const T = s => (ms.timeline.find(e => e.state === s) || {}).t;
+      $('dStats').innerHTML = `<div class="stat"><b>${dur(ms.duration_s)}</b><span>Total</span></div><div class="stat"><b>${T('at_pickup') ? dur(T('at_pickup') - T('to_pickup')) : '–'}</b><span>To pickup</span></div><div class="stat"><b>${T('at_dropoff') ? dur(T('at_dropoff') - T('to_dropoff')) : '–'}</b><span>To drop-off</span></div>`;
+    }
+    if (ms) {
+      const idx = st === 'problem' ? ORDER.indexOf(ms.resume) : ORDER.indexOf(st);
+      const when = k => { const e = [...ms.timeline].reverse().find(x => x.state === k); return e ? hhmm(e.t) : ''; };
+      $('steps').innerHTML = STEPS.map(([k, name], i) => {
+        const cls = st === 'delivered' || i < idx ? 'done' : i === idx ? (k === 'at_pickup' || k === 'at_dropoff' ? 'wait' : 'now') : '';
+        const sub = i < 2 ? ms.pickup.name : i < 4 ? ms.dropoff.name : i === 4 ? 'Dock' : '';
+        return `<li class="step ${cls}"><span class="mk">${CHECK}</span><span><span class="t">${name}</span>${sub ? `<br><span class="s">${sub}</span>` : ''}</span><time>${i <= idx || st === 'delivered' ? when(k) : ''}</time></li>`;
+      }).join('');
+    }
+    $('rc').hidden = !(S.history && S.history.length);
+    $('recent').innerHTML = (S.history || []).map(h => `<div class="r"><span>${h.pickup} → ${h.dropoff}</span><span>${dur(h.duration_s)} · ${h.finished}</span></div>`).join('');
+  }
+  $('loaded').onclick = () => post('/api/loaded');
+  $('unloaded').onclick = () => post('/api/unloaded');
+  $('cancel').onclick = () => post('/api/cancel');
+  $('retry').onclick = () => post('/api/retry');
+  $('home').onclick = () => post('/api/cancel');
+  $('again').onclick = () => { dismissed = S.mission && S.mission.id; sel = { A: null, B: null }; picking = 'A'; render(); sync(); };
+
+  function connect() {
+    const es = new EventSource('/api/stream');
+    es.onmessage = ev => { S = JSON.parse(ev.data); if (S.plan) plan = S.plan; if (!fp.length) load(); render(); };
+    es.onerror = () => { $('online').classList.remove('on'); $('onlineTxt').textContent = 'Reconnecting'; };
+  }
+  load(); connect(); requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

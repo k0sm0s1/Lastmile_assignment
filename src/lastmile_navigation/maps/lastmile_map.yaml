@@ -4,4 +4,8 @@ resolution: 0.05
 origin: [-5.1899, -6.2513, 0.0]
 negate: 0
 occupied_thresh: 0.65
+# 0.25 makes map_server load the grey "never scanned" pixels (205) as FREE.
+# Deliberate: some real floor was only partly scanned (e.g. the west side of
+# the north arm) and every verified run used this value. The delivery page
+# reads lastmile_map.pgm itself to know what was really scanned.
 free_thresh: 0.25

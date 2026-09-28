@@ -21,5 +21,6 @@ setup(
     description="Live browser dashboard for the lastmile navigation stack.",
     license="MIT",
     entry_points={"console_scripts": ["dashboard_node = lastmile_dashboard.dashboard_node:main",
-                                      "record_demo = lastmile_dashboard.record_demo:main"]},
+                                      "record_demo = lastmile_dashboard.record_demo:main",
+                                      "delivery_node = lastmile_dashboard.delivery_node:main"]},
 )

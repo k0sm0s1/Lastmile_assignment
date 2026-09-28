@@ -21,6 +21,8 @@ from nav2_common.launch import RewrittenYaml
 def generate_launch_description():
     nav_pkg_share = get_package_share_directory("lastmile_navigation")
     default_map = os.path.join(nav_pkg_share, "maps", "lastmile_map.yaml")
+    # bounded planning map (outside the building = occupied), costmaps only
+    nav_map = os.path.join(nav_pkg_share, "maps", "lastmile_nav_map.yaml")
     default_params = os.path.join(nav_pkg_share, "params", "nav2_params.yaml")
     obstacle_params = os.path.join(nav_pkg_share, "params", "nav2_params_obstacles.yaml")
     obstacles = LaunchConfiguration("obstacles")
@@ -39,7 +41,7 @@ def generate_launch_description():
     )
 
     lifecycle_nodes = [
-        "map_server", "amcl", "controller_server", "planner_server",
+        "map_server", "nav_map_server", "amcl", "controller_server", "planner_server",
         "behavior_server", "bt_navigator",
     ]
 
@@ -54,6 +56,14 @@ def generate_launch_description():
             package="nav2_map_server", executable="map_server", name="map_server",
             output="screen",
             parameters=[configured_params, {"use_sim_time": use_sim_time, "yaml_filename": map_yaml}],
+        ),
+        # /nav_map: same scan, but everything outside the building is a wall,
+        # so the planner can't route through scan gaps into unscanned space
+        Node(
+            package="nav2_map_server", executable="map_server", name="nav_map_server",
+            output="screen",
+            parameters=[configured_params, {"use_sim_time": use_sim_time, "yaml_filename": nav_map,
+                                            "topic_name": "nav_map"}],
         ),
         Node(
             package="nav2_amcl", executable="amcl", name="amcl",
