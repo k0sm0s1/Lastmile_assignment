@@ -415,3 +415,10 @@ src/lastmile_bot_animator/           optional: its cosmetic idle animation
   *Try Again*. Without obstacles the corridor is wide and this doesn't come up.
 * `lastmile_bot` (the custom robot) is kept as an optional extra and was not part of
   the verified runs; TurtleBot3 is the validated robot.
+
+## Study guides and Windows launchers
+
+* `docs/codebase-manual.html`: file-by-file technical manual (what every file does, key code excerpts).
+* `docs/field-guide.html`: the illustrated walkthrough of the whole project and its debugging story.
+* `windows/*.bat`: double-click launchers for Windows + WSL (`START_1_BASIC`, `START_2_OBSTACLES`,
+  `START_3_DELIVERY`, `START_EVERYTHING`, `STOP_EVERYTHING`). They expect the workspace at `~/lastmile_ws`.
